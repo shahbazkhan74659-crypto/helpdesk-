@@ -13,6 +13,11 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Role {
+  admin
+  agent
+}
+
 model User {
   id            String    @id
   name          String
@@ -23,6 +28,11 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
+
+  // Better Auth generates this as a plain String; hand-converted to a Postgres
+  // enum for DB-level enforcement. Re-running `better-auth generate` will
+  // reset this to String - reapply the enum after regenerating.
+  role Role @default(agent)
 
   @@unique([email])
   @@map("user")

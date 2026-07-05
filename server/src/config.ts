@@ -9,6 +9,10 @@ const envSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32, 'BETTER_AUTH_SECRET must be at least 32 characters'),
   BETTER_AUTH_URL: z.string().min(1, 'BETTER_AUTH_URL is required'),
 
+  // Seed admin user credentials (server/prisma/seed.ts). Only needed when seeding.
+  ADMIN_EMAIL: z.string().optional(),
+  ADMIN_PASSWORD: z.string().optional(),
+
   // Gmail API (email intake) - separate Google Cloud OAuth client.
   // Unset until Phase 4 (email intake) wires it up.
   GOOGLE_CLIENT_ID: z.string().optional(),
