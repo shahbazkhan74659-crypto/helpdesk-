@@ -6,7 +6,7 @@ Stack assumptions (see `project-scope.md` for product scope):
 - **Backend**: Node.js / Express (REST API)
 - **Database**: PostgreSQL
 - **AI provider**: Anthropic Claude API
-- **Auth**: Google OAuth (Admin/Agent sign-in)
+- **Auth**: Email/Password via Better Auth, database sessions (Admin/Agent sign-in)
 - **Email**: Gmail API, webhook (push) ingestion, attachments supported
 
 Phases are ordered so each one produces a working, demoable slice. Later phases depend on earlier ones.
@@ -22,12 +22,11 @@ Phases are ordered so each one produces a working, demoable slice. Later phases 
 - [x] Set up Prisma and connect backend to DB.
 - [x] Set up shared config for secrets (Google OAuth creds, Gmail API creds, Anthropic API key)
 - [x] create .gitignore for the Secrets and Passwords
-- [ ] Commit in git
+- [x] Commit in git
 
 ## Phase 1 — Auth & User Management
 
-- [ ] Implement Google OAuth login flow (backend + frontend)
-- [ ] Create database session based authenticated.
+- [x] Set up Better Auth (email/password, database sessions) on the backend
 - [ ] Add `role` field (Admin/Agent) to `users`, enforce role-based access on endpoints
 - [ ] Admin endpoints: list users, invite/add user, set role, deactivate user
 - [ ] Frontend: login page, protected routes, role-aware nav (Admin sees User Management, Agent doesn't)

@@ -1,5 +1,7 @@
+import { toNodeHandler } from 'better-auth/node';
 import cors from 'cors';
 import express from 'express';
+import { auth } from './auth';
 import { config } from './config';
 import { prisma } from './db';
 
@@ -7,6 +9,7 @@ const app = express();
 const port = config.PORT;
 
 app.use(cors());
+app.all('/api/auth/*splat', toNodeHandler(auth));
 app.use(express.json());
 
 app.get('/health', (_req, res) => {

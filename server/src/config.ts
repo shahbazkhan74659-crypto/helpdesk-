@@ -5,9 +5,12 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(3001),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
 
-  // Google OAuth (Admin/Agent sign-in) and Gmail API (email intake) share
-  // one Google Cloud OAuth client, requested with different scopes.
-  // Unset until Phase 1 (auth) / Phase 4 (email intake) wire them up.
+  // Better Auth (email/password, database sessions).
+  BETTER_AUTH_SECRET: z.string().min(32, 'BETTER_AUTH_SECRET must be at least 32 characters'),
+  BETTER_AUTH_URL: z.string().min(1, 'BETTER_AUTH_URL is required'),
+
+  // Gmail API (email intake) - separate Google Cloud OAuth client.
+  // Unset until Phase 4 (email intake) wires it up.
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_REDIRECT_URI: z.string().optional(),
