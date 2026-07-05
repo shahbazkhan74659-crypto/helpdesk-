@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Environment files (may contain real credentials/connection strings)
+.env
+.env.*.local
+
+# Claude Code local settings - contains this machine's tool-approval history,
+# which can embed literal secrets typed into commands (e.g. DB passwords).
+# Never commit this; .claude/settings.json (if added later) is the shared file.
+.claude/settings.local.json
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db
