@@ -4,6 +4,7 @@ import { z } from 'zod';
 const envSchema = z.object({
   PORT: z.coerce.number().default(3001),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+  CLIENT_URL: z.string().default('http://localhost:5173'),
 
   // Better Auth (email/password, database sessions).
   BETTER_AUTH_SECRET: z.string().min(32, 'BETTER_AUTH_SECRET must be at least 32 characters'),

@@ -8,7 +8,7 @@ import { prisma } from './db';
 const app = express();
 const port = config.PORT;
 
-app.use(cors());
+app.use(cors({ origin: config.CLIENT_URL, credentials: true }));
 app.all('/api/auth/*splat', toNodeHandler(auth));
 app.use(express.json());
 

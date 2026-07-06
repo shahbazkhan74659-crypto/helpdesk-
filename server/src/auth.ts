@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
+import { config } from './config';
 import { prisma } from './db';
 
 export const auth = betterAuth({
@@ -10,6 +11,7 @@ export const auth = betterAuth({
     enabled: true,
     disableSignUp: true,
   },
+  trustedOrigins: [config.CLIENT_URL],
   user: {
     additionalFields: {
       role: {
