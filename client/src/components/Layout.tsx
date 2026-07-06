@@ -1,16 +1,10 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { authClient } from '../lib/auth-client';
 
-const navItems = [
-  { to: '/', label: 'Queue', end: true },
-  { to: '/dashboard', label: 'Dashboard' },
-  { to: '/knowledge-base', label: 'Knowledge Base' },
-  { to: '/users', label: 'Users' },
-];
-
 function Layout() {
   const navigate = useNavigate();
   const { data: session } = authClient.useSession();
+  const isAdmin = session?.user.role === 'admin';
 
   async function handleSignOut() {
     await authClient.signOut();
@@ -23,18 +17,16 @@ function Layout() {
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
           <span className="font-semibold text-white">HelpDesk</span>
           <nav className="flex gap-4">
-            {navItems.map((item) => (
+            {isAdmin && (
               <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
+                to="/users"
                 className={({ isActive }) =>
                   `text-sm ${isActive ? 'font-medium text-white' : 'text-gray-400 hover:text-white'}`
                 }
               >
-                {item.label}
+                Users
               </NavLink>
-            ))}
+            )}
           </nav>
           {session?.user && (
             <div className="ml-auto flex items-center gap-3">
