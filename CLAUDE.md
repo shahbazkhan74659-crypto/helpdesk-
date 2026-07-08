@@ -18,6 +18,9 @@ npm run dev:server     # Express via tsx watch, http://localhost:3001
 # Client (run from client/)
 npm run build           # tsc && vite build
 npm run lint             # eslint .
+npm run test             # vitest run — component tests
+npm run test:watch       # vitest — watch mode, reruns on save
+npm run test:ui          # vitest --ui — browser-based test explorer
 
 # Server (run from server/)
 npm run build           # tsc -p tsconfig.json -> dist/
@@ -28,12 +31,18 @@ npm run seed             # tsx prisma/seed.ts — creates the admin user from AD
 npx prisma migrate dev   # create/apply a migration
 npx prisma generate      # regenerate the client into server/src/generated/prisma
 
-# Playwright e2e (run from repo root) — no tests written yet, just wiring
+# Playwright e2e (run from repo root)
 npm run test:e2e          # playwright test
 npm run test:e2e:ui       # playwright test --ui
 ```
 
-There is no unit test suite in either workspace. Playwright is configured for e2e (`playwright.config.ts` at repo root, `e2e/` dir) but no spec files exist yet. **Use the `e2e-tester` agent (`.claude/agents/e2e-tester.md`) to write or update any Playwright spec** — it already knows the isolated test-DB setup, seeded-admin caveats, and locator/assertion conventions, so don't hand-write `e2e/*.spec.ts` files directly.
+**Client-only component tests use Vitest + React Testing Library.** Setup lives in `client/vite.config.ts`'s `test` block (`environment: 'jsdom'`, `setupFiles: ['./src/test/setup.ts']`) and `client/src/test/setup.ts` (extends `expect` with `@testing-library/jest-dom/vitest`, and calls RTL's `cleanup()` in `afterEach` since `test.globals` is off — **imports in spec files must be explicit**, e.g. `import { describe, it, expect, vi } from 'vitest'`, not ambient globals; skipping the `cleanup()` call or the explicit imports is the most common way these tests break).
+
+To write a component test: colocate it next to the component as `Component.test.tsx` (e.g. `client/src/pages/UsersPage.test.tsx`). If the component calls a custom endpoint via `apiGet`/`api.ts`, mock the module before rendering — `vi.mock('../lib/api', () => ({ apiGet: vi.fn() }))`, then get a typed handle with `const mockedApiGet = vi.mocked(apiGet)` and set its behavior per test (`mockReturnValue(new Promise(() => {}))` to freeze on the loading state, `mockResolvedValue(...)` for success, `mockRejectedValue(...)` for the error path) — reset it in a `beforeEach` so tests don't leak mock state into each other. If the component uses `useQuery`/`useMutation` (i.e. is inside `QueryClientProvider` in the real app), render it with `renderWithQuery` from `client/src/test/renderWithQuery.tsx` instead of RTL's bare `render` — it wraps the element in a fresh `QueryClient`/`QueryClientProvider` (with retries off) so each test starts with an empty cache; don't hand-roll another `QueryClientProvider` wrapper per test file. `UsersPage.test.tsx` is the reference for all of this: pending/skeleton state, success state (asserting on rendered data plus implementation details like the admin-role badge's class), and the error state.
+
+To run them: `npm run test` (single run, what CI/verification should use), `npm run test:watch` (reruns on save while you're actively writing a test), `npm run test:ui` (opens a browser UI at the printed `localhost` URL for inspecting individual test results/DOM snapshots — useful when a failure's terminal output isn't enough to see what rendered).
+
+The server workspace has no unit test suite. Playwright is configured for e2e (`playwright.config.ts` at repo root, `e2e/` dir, isolated `helpdesk_test` DB) with specs already covering login, role-based route access, and the users table. **Use the `e2e-tester` agent (`.claude/agents/e2e-tester.md`) to write or update any Playwright spec** — it already knows the isolated test-DB setup, seeded-admin caveats, and locator/assertion conventions, so don't hand-write `e2e/*.spec.ts` files directly.
 
 Both `client/.env` and `server/.env` are gitignored; copy from the corresponding `.env.example` when setting up. `server/.env` needs `DATABASE_URL`, `BETTER_AUTH_SECRET` (32+ chars, e.g. `openssl rand -base64 32`), `BETTER_AUTH_URL`, and `CLIENT_URL`; `GOOGLE_*` and `ANTHROPIC_API_KEY` are unused until Phases 4 and 6. `client/.env` needs `VITE_API_URL` pointing at the server.
 
