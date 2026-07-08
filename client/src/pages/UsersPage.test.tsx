@@ -1,4 +1,5 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiGet } from '../lib/api';
 import { renderWithQuery } from '../test/renderWithQuery';
@@ -83,5 +84,50 @@ describe('UsersPage', () => {
     renderUsersPage();
 
     expect(screen.getByRole('button', { name: 'Create user' })).toBeInTheDocument();
+  });
+
+  it('shows the create user dialog when the "Create user" button is clicked', async () => {
+    mockedApiGet.mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+
+    renderUsersPage();
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Create user' }));
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('hides the create user dialog when Escape is pressed', async () => {
+    mockedApiGet.mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+
+    renderUsersPage();
+
+    await user.click(screen.getByRole('button', { name: 'Create user' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+
+  it('hides the create user dialog when the Cancel button is clicked', async () => {
+    mockedApiGet.mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+
+    renderUsersPage();
+
+    await user.click(screen.getByRole('button', { name: 'Create user' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
   });
 });

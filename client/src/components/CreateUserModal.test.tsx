@@ -59,6 +59,34 @@ describe('CreateUserModal', () => {
     expect(mockedApiPost).not.toHaveBeenCalled();
   });
 
+  it('shows "Name is required" and a red border for a whitespace-only name, without hitting the API', async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.type(screen.getByLabelText('Name'), '   ');
+    await user.type(screen.getByLabelText('Email'), 'jane@test.local');
+    await user.type(screen.getByLabelText('Password'), 'password123');
+    await user.click(screen.getByRole('button', { name: 'Create user' }));
+
+    expect(await screen.findByText('Name is required')).toBeInTheDocument();
+    expect(screen.getByLabelText('Name')).toHaveAttribute('aria-invalid', 'true');
+    expect(mockedApiPost).not.toHaveBeenCalled();
+  });
+
+  it('shows "Password is required" and a red border for a whitespace-only password, without hitting the API', async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await user.type(screen.getByLabelText('Name'), 'Jane Doe');
+    await user.type(screen.getByLabelText('Email'), 'jane@test.local');
+    await user.type(screen.getByLabelText('Password'), '        ');
+    await user.click(screen.getByRole('button', { name: 'Create user' }));
+
+    expect(await screen.findByText('Password is required')).toBeInTheDocument();
+    expect(screen.getByLabelText('Password')).toHaveAttribute('aria-invalid', 'true');
+    expect(mockedApiPost).not.toHaveBeenCalled();
+  });
+
   it('creates the user and closes the modal on valid submit', async () => {
     mockedApiPost.mockResolvedValue({
       user: { id: '1', name: 'Jane Doe', email: 'jane@test.local', role: 'agent', createdAt: '2026-07-08T00:00:00.000Z' },

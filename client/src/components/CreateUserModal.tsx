@@ -18,9 +18,13 @@ import { ApiError, apiPost } from '../lib/api';
 import type { User } from './UsersTable';
 
 const createUserSchema = z.object({
-  name: z.string().min(3, 'Name must be at least 3 characters'),
+  name: z.string().trim().min(1, 'Name is required').min(3, 'Name must be at least 3 characters'),
   email: z.string().min(1, 'Email is required').email('Enter a valid email'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z
+    .string()
+    .trim()
+    .min(1, 'Password is required')
+    .min(8, 'Password must be at least 8 characters'),
 });
 
 type CreateUserFormValues = z.infer<typeof createUserSchema>;
