@@ -27,9 +27,13 @@ npm run seed             # tsx prisma/seed.ts — creates the admin user from AD
 # Prisma (run from server/)
 npx prisma migrate dev   # create/apply a migration
 npx prisma generate      # regenerate the client into server/src/generated/prisma
+
+# Playwright e2e (run from repo root) — no tests written yet, just wiring
+npm run test:e2e          # playwright test
+npm run test:e2e:ui       # playwright test --ui
 ```
 
-There is no test suite yet in either workspace.
+There is no unit test suite in either workspace. Playwright is configured for e2e (`playwright.config.ts` at repo root, `e2e/` dir) but no spec files exist yet — see "Testing" below.
 
 Both `client/.env` and `server/.env` are gitignored; copy from the corresponding `.env.example` when setting up. `server/.env` needs `DATABASE_URL`, `BETTER_AUTH_SECRET` (32+ chars, e.g. `openssl rand -base64 32`), `BETTER_AUTH_URL`, and `CLIENT_URL`; `GOOGLE_*` and `ANTHROPIC_API_KEY` are unused until Phases 4 and 6. `client/.env` needs `VITE_API_URL` pointing at the server.
 
@@ -46,3 +50,15 @@ Both `client/.env` and `server/.env` are gitignored; copy from the corresponding
 **Client structure**: Vite + React 19 + React Router (routes in `client/src/App.tsx`; `Layout.tsx` provides the nav shell and wraps everything except `/login` in `<Outlet />`). The route tree is currently just `/login` (`LoginPage`), index `/` (`HomePage`), and `/users` (`UsersPage`, gated by `RequireAdmin`) — the earlier `DashboardPage`/`KnowledgeBasePage`/`TicketQueuePage` placeholders were removed and haven't been rebuilt yet, so most of the nav is intentionally gone for now. `client/src/components/RequireAdmin.tsx` is the role-gate pattern: it reads `authClient.useSession()` and redirects to `/` unless `session.user.role === 'admin'`; wrap any future admin-only route's element in it the same way `/users` is wrapped. `Layout.tsx`'s nav only renders the "Users" link when `session.user.role === 'admin'` — agents currently see no nav links at all besides sign-out. Forms use `react-hook-form` + `@hookform/resolvers/zod` + `zod` (see `LoginPage.tsx` for the pattern: schema → `useForm` with `zodResolver` → `register`). Styling is Tailwind CSS v4 (`@import "tailwindcss"` in `client/src/index.css`, no separate Tailwind config file) plus shadcn UI on the "base" library variant (`@base-ui/react` primitives, not Radix) with the Nova preset — `components.json` records `style: base-nova`. The `@/*` import alias maps to `client/src/*`; it's declared in both `client/tsconfig.json` (`compilerOptions.paths`, no `baseUrl` — that option is deprecated in TS 6) and `client/vite.config.ts` (`resolve.alias`), and **both are required** — Vite's dev-server dependency scan does not resolve tsconfig `paths` on its own, only `tsc` and `vite build` do. Add new shadcn components with `npx shadcn@latest add <component>` from `client/`; note the registry's `form` item currently has no content for the base library, so forms are wired by hand with `Input`/`Label`/`Card`/`Button` + `react-hook-form`, not a `Form` wrapper.
 
 Most page components (`HomePage`, `UsersPage`) are still placeholder stubs (just a heading) — only `LoginPage`, `Layout`, and `RequireAdmin` have real implementations so far.
+
+## Testing
+
+Playwright e2e is configured but no specs exist yet (`e2e/` currently only has `global-setup.ts`) — this is scaffolding, not a feature.
+
+**Fully isolated from dev**: e2e runs against `server/.env.test` / `client/.env.test` (gitignored, copy from the `.env.test.example` templates), which point at a separate `helpdesk_test` Postgres database and separate ports (server `3002`, client `5174`) so `npm run test:e2e` can run alongside `npm run dev:client`/`dev:server` without colliding. `server/src/config.ts` picks `.env.test` over `.env` whenever `NODE_ENV=test`; that var must be set *before* config.ts loads (the `dev:test`/`db:test:*` scripts do this via `cross-env`), since it's what decides which file to read.
+
+`playwright.config.ts`'s `globalSetup` (`e2e/global-setup.ts`) runs `db:test:migrate` + `db:test:seed` against the test DB before every run, so the suite always starts from a known state. Relevant `server/package.json` scripts: `dev:test`, `db:test:migrate`, `db:test:seed`, `db:test:reset`.
+
+## Auth notes
+
+Better Auth's rate limiting (`server/src/auth.ts`) is explicitly gated on `config.NODE_ENV === 'production'` — it's off in dev/test so local iteration and e2e runs aren't throttled.

@@ -5,8 +5,13 @@ node_modules/
 dist/
 build/
 
+# Playwright
+/playwright-report/
+/test-results/
+
 # Environment files (may contain real credentials/connection strings)
 .env
+.env.test
 .env.*.local
 
 # Claude Code local settings - contains this machine's tool-approval history,

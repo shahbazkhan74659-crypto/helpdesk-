@@ -13,12 +13,13 @@ export const auth = betterAuth({
   },
   trustedOrigins: [config.CLIENT_URL],
   rateLimit: {
-    enabled: true,
+    // Better Auth already defaults to enabled-in-production/disabled-elsewhere;
+    // this is explicit so it doesn't silently change if that default ever does.
+    enabled: config.NODE_ENV === 'production',
     window: 60,
     max: 100,
-    // Sign-in already gets a strict built-in rule (10s window, 3 requests) from
-    // Better Auth's default special rules; enabling rate limiting here is what
-    // activates it, since it's otherwise off outside NODE_ENV=production.
+    // Sign-in also gets a strict built-in rule (10s window, 3 requests) from
+    // Better Auth's default special rules once rate limiting is enabled.
   },
   advanced: {
     useSecureCookies: config.NODE_ENV === 'production',
