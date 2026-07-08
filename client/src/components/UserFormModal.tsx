@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ApiError, apiPost } from '../lib/api';
+import { ApiError, apiPatch, apiPost } from '../lib/api';
 import type { User } from './UsersTable';
 
 const createUserSchema = z.object({
@@ -27,14 +27,22 @@ const createUserSchema = z.object({
     .min(8, 'Password must be at least 8 characters'),
 });
 
-type CreateUserFormValues = z.infer<typeof createUserSchema>;
+const editUserSchema = createUserSchema.extend({
+  password: z.string().trim().refine((value) => value.length === 0 || value.length >= 8, {
+    message: 'Password must be at least 8 characters',
+  }),
+});
 
-type CreateUserModalProps = {
+type UserFormValues = z.infer<typeof createUserSchema>;
+
+type UserFormModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  user?: User;
 };
 
-function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
+function UserFormModal({ open, onOpenChange, user }: UserFormModalProps) {
+  const isEditMode = !!user;
   const queryClient = useQueryClient();
   const [formError, setFormError] = useState<string | null>(null);
   const {
@@ -42,14 +50,29 @@ function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<CreateUserFormValues>({
-    resolver: zodResolver(createUserSchema),
+  } = useForm<UserFormValues>({
+    resolver: zodResolver(isEditMode ? editUserSchema : createUserSchema),
     mode: 'onBlur',
     reValidateMode: 'onChange',
   });
 
+  useEffect(() => {
+    if (open) {
+      reset(user ? { name: user.name, email: user.email, password: '' } : { name: '', email: '', password: '' });
+    }
+  }, [open, user, reset]);
+
   const mutation = useMutation({
-    mutationFn: (values: CreateUserFormValues) => apiPost<{ user: User }>('/api/users', values),
+    mutationFn: (values: UserFormValues) => {
+      if (isEditMode && user) {
+        const payload: Partial<UserFormValues> = { name: values.name, email: values.email };
+        if (values.password) {
+          payload.password = values.password;
+        }
+        return apiPatch<{ user: User }>(`/api/users/${user.id}`, payload);
+      }
+      return apiPost<{ user: User }>('/api/users', values);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
     },
@@ -57,18 +80,16 @@ function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
 
   function handleOpenChange(next: boolean) {
     if (!next) {
-      reset();
       setFormError(null);
     }
     onOpenChange(next);
   }
 
-  async function onSubmit(values: CreateUserFormValues) {
+  async function onSubmit(values: UserFormValues) {
     setFormError(null);
 
     try {
       await mutation.mutateAsync(values);
-      reset();
       onOpenChange(false);
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
@@ -83,8 +104,10 @@ function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create user</DialogTitle>
-          <DialogDescription>Add a new user to HelpDesk.</DialogDescription>
+          <DialogTitle>{isEditMode ? 'Edit user' : 'Create user'}</DialogTitle>
+          <DialogDescription>
+            {isEditMode ? 'Update this user’s details.' : 'Add a new user to HelpDesk.'}
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
@@ -112,10 +135,14 @@ function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
               id="password"
               type="password"
               autoComplete="new-password"
+              placeholder={isEditMode ? 'Leave blank to keep current password' : undefined}
               aria-invalid={!!errors.password}
               {...register('password')}
             />
             {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+            {isEditMode && !errors.password && (
+              <p className="text-sm text-muted-foreground">Leave blank to keep the current password.</p>
+            )}
           </div>
 
           {formError && <p className="text-sm text-destructive">{formError}</p>}
@@ -125,7 +152,13 @@ function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Creating...' : 'Create user'}
+              {isEditMode
+                ? isSubmitting
+                  ? 'Saving...'
+                  : 'Save changes'
+                : isSubmitting
+                  ? 'Creating...'
+                  : 'Create user'}
             </Button>
           </DialogFooter>
         </form>
@@ -134,4 +167,4 @@ function CreateUserModal({ open, onOpenChange }: CreateUserModalProps) {
   );
 }
 
-export default CreateUserModal;
+export default UserFormModal;

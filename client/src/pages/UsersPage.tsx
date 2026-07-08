@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import CreateUserModal from '../components/CreateUserModal';
+import UserFormModal from '../components/UserFormModal';
 import UsersTable, { type User } from '../components/UsersTable';
 import { apiGet } from '../lib/api';
 
+type ModalState = { mode: 'create' } | { mode: 'edit'; user: User } | null;
+
 function UsersPage() {
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [modalState, setModalState] = useState<ModalState>(null);
   const {
     data: users,
     isPending,
@@ -20,14 +22,26 @@ function UsersPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-gray-900">Users</h1>
-        <Button onClick={() => setIsCreateOpen(true)}>Create user</Button>
+        <Button onClick={() => setModalState({ mode: 'create' })}>Create user</Button>
       </div>
 
-      <CreateUserModal open={isCreateOpen} onOpenChange={setIsCreateOpen} />
+      <UserFormModal
+        open={modalState !== null}
+        onOpenChange={(open) => {
+          if (!open) setModalState(null);
+        }}
+        user={modalState?.mode === 'edit' ? modalState.user : undefined}
+      />
 
       {isError && <p className="text-sm text-destructive">Failed to load users. Please try again.</p>}
 
-      {(isPending || users) && <UsersTable users={users} isPending={isPending} />}
+      {(isPending || users) && (
+        <UsersTable
+          users={users}
+          isPending={isPending}
+          onEdit={(user) => setModalState({ mode: 'edit', user })}
+        />
+      )}
     </div>
   );
 }

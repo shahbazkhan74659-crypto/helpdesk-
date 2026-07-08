@@ -7,7 +7,7 @@ import UsersPage from './UsersPage';
 
 vi.mock('../lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../lib/api')>();
-  return { ...actual, apiGet: vi.fn(), apiPost: vi.fn() };
+  return { ...actual, apiGet: vi.fn(), apiPost: vi.fn(), apiPatch: vi.fn() };
 });
 
 const mockedApiGet = vi.mocked(apiGet);
@@ -122,6 +122,73 @@ describe('UsersPage', () => {
     renderUsersPage();
 
     await user.click(screen.getByRole('button', { name: 'Create user' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+
+  it('renders an edit button for each user', async () => {
+    mockedApiGet.mockResolvedValue({
+      users: [
+        {
+          id: '1',
+          name: 'Admin',
+          email: 'admin@test.local',
+          role: 'admin',
+          createdAt: '2026-07-05T17:41:22.695Z',
+        },
+      ],
+    });
+
+    renderUsersPage();
+
+    expect(await screen.findByRole('button', { name: 'Edit Admin' })).toBeInTheDocument();
+  });
+
+  it('opens the edit dialog pre-filled with the row\'s data when its edit button is clicked', async () => {
+    mockedApiGet.mockResolvedValue({
+      users: [
+        {
+          id: '1',
+          name: 'Admin',
+          email: 'admin@test.local',
+          role: 'admin',
+          createdAt: '2026-07-05T17:41:22.695Z',
+        },
+      ],
+    });
+    const user = userEvent.setup();
+
+    renderUsersPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Edit Admin' }));
+
+    expect(screen.getByRole('heading', { name: 'Edit user' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Name')).toHaveValue('Admin');
+    expect(screen.getByLabelText('Email')).toHaveValue('admin@test.local');
+  });
+
+  it('hides the edit dialog when Cancel is clicked', async () => {
+    mockedApiGet.mockResolvedValue({
+      users: [
+        {
+          id: '1',
+          name: 'Admin',
+          email: 'admin@test.local',
+          role: 'admin',
+          createdAt: '2026-07-05T17:41:22.695Z',
+        },
+      ],
+    });
+    const user = userEvent.setup();
+
+    renderUsersPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Edit Admin' }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }));

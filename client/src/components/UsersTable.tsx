@@ -1,4 +1,6 @@
+import { Pencil } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
@@ -24,9 +26,10 @@ export type User = {
 type UsersTableProps = {
   users: User[] | undefined;
   isPending: boolean;
+  onEdit: (user: User) => void;
 };
 
-function UsersTable({ users, isPending }: UsersTableProps) {
+function UsersTable({ users, isPending, onEdit }: UsersTableProps) {
   return (
     <Table>
       <TableHeader>
@@ -35,6 +38,7 @@ function UsersTable({ users, isPending }: UsersTableProps) {
           <TableHead>Email</TableHead>
           <TableHead>Role</TableHead>
           <TableHead>Joined</TableHead>
+          <TableHead>Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -53,6 +57,7 @@ function UsersTable({ users, isPending }: UsersTableProps) {
                 <TableCell>
                   <Skeleton className="h-4 w-20" />
                 </TableCell>
+                <TableCell />
               </TableRow>
             ))
           : (users ?? []).map((user) => (
@@ -67,6 +72,16 @@ function UsersTable({ users, isPending }: UsersTableProps) {
                   )}
                 </TableCell>
                 <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Edit ${user.name}`}
+                    onClick={() => onEdit(user)}
+                  >
+                    <Pencil />
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
       </TableBody>
