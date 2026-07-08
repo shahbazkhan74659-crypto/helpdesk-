@@ -17,6 +17,15 @@ function Layout() {
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
           <span className="font-semibold text-white">HelpDesk</span>
           <nav className="flex gap-4">
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) =>
+                `text-sm ${isActive ? 'font-medium text-white' : 'text-gray-400 hover:text-white'}`
+              }
+            >
+              Home
+            </NavLink>
             {isAdmin && (
               <NavLink
                 to="/users"
