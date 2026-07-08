@@ -1,10 +1,11 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { authClient } from '../lib/auth-client';
+import { Role } from '../lib/role';
 
 function Layout() {
   const navigate = useNavigate();
   const { data: session } = authClient.useSession();
-  const isAdmin = session?.user.role === 'admin';
+  const isAdmin = session?.user.role === Role.admin;
 
   async function handleSignOut() {
     await authClient.signOut();

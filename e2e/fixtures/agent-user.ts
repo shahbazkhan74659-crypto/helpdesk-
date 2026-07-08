@@ -5,7 +5,7 @@ import { hashPassword } from 'better-auth/crypto';
 // from server/.env.test), and no admin-invite UI/API yet to create one
 // through the app. Created directly via Prisma against the test DB only,
 // scoped by DATABASE_URL from server/.env.test.
-import { PrismaClient } from '../../server/src/generated/prisma/client';
+import { PrismaClient, Role } from '../../server/src/generated/prisma/client';
 import { DATABASE_URL } from './test-env';
 
 export const AGENT_EMAIL = 'agent@test.local';
@@ -33,7 +33,7 @@ export async function ensureAgentUser(): Promise<void> {
         name: 'Test Agent',
         email: AGENT_EMAIL,
         emailVerified: true,
-        role: 'agent',
+        role: Role.agent,
         accounts: {
           create: {
             id: randomUUID(),

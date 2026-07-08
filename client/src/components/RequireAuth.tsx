@@ -1,20 +1,19 @@
 import type { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { authClient } from '../lib/auth-client';
-import { Role } from '../lib/role';
 
-function RequireAdmin({ children }: { children: ReactNode }) {
+function RequireAuth({ children }: { children: ReactNode }) {
   const { data: session, isPending } = authClient.useSession();
 
   if (isPending) {
     return null;
   }
 
-  if (session?.user.role !== Role.admin) {
-    return <Navigate to="/" replace />;
+  if (!session) {
+    return <Navigate to="/login" replace />;
   }
 
   return <>{children}</>;
 }
 
-export default RequireAdmin;
+export default RequireAuth;

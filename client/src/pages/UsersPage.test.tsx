@@ -2,12 +2,13 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiGet } from '../lib/api';
+import { Role } from '../lib/role';
 import { renderWithQuery } from '../test/renderWithQuery';
 import UsersPage from './UsersPage';
 
 vi.mock('../lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../lib/api')>();
-  return { ...actual, apiGet: vi.fn(), apiPost: vi.fn(), apiPatch: vi.fn() };
+  return { ...actual, apiGet: vi.fn(), apiPost: vi.fn(), apiPatch: vi.fn(), apiDelete: vi.fn() };
 });
 
 const mockedApiGet = vi.mocked(apiGet);
@@ -37,14 +38,14 @@ describe('UsersPage', () => {
           id: '1',
           name: 'Admin',
           email: 'admin@test.local',
-          role: 'admin',
+          role: Role.admin,
           createdAt: '2026-07-05T17:41:22.695Z',
         },
         {
           id: '2',
           name: 'Test Agent',
           email: 'agent@test.local',
-          role: 'agent',
+          role: Role.agent,
           createdAt: '2026-07-06T05:52:59.272Z',
         },
       ],
@@ -65,8 +66,8 @@ describe('UsersPage', () => {
 
     expect(adminRoleCell.querySelector('.bg-primary')).not.toBeNull();
     expect(agentRoleCell.querySelector('.bg-primary')).toBeNull();
-    expect(adminRoleCell).toHaveTextContent('admin');
-    expect(agentRoleCell).toHaveTextContent('agent');
+    expect(adminRoleCell).toHaveTextContent(Role.admin);
+    expect(agentRoleCell).toHaveTextContent(Role.agent);
   });
 
   it('shows an error message when the request fails', async () => {
@@ -138,7 +139,7 @@ describe('UsersPage', () => {
           id: '1',
           name: 'Admin',
           email: 'admin@test.local',
-          role: 'admin',
+          role: Role.admin,
           createdAt: '2026-07-05T17:41:22.695Z',
         },
       ],
@@ -156,7 +157,7 @@ describe('UsersPage', () => {
           id: '1',
           name: 'Admin',
           email: 'admin@test.local',
-          role: 'admin',
+          role: Role.admin,
           createdAt: '2026-07-05T17:41:22.695Z',
         },
       ],
@@ -179,7 +180,7 @@ describe('UsersPage', () => {
           id: '1',
           name: 'Admin',
           email: 'admin@test.local',
-          role: 'admin',
+          role: Role.admin,
           createdAt: '2026-07-05T17:41:22.695Z',
         },
       ],
@@ -189,6 +190,82 @@ describe('UsersPage', () => {
     renderUsersPage();
 
     await user.click(await screen.findByRole('button', { name: 'Edit Admin' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+
+  it('renders a delete button for a non-admin user, but not for an admin', async () => {
+    mockedApiGet.mockResolvedValue({
+      users: [
+        {
+          id: '1',
+          name: 'Admin',
+          email: 'admin@test.local',
+          role: Role.admin,
+          createdAt: '2026-07-05T17:41:22.695Z',
+        },
+        {
+          id: '2',
+          name: 'Test Agent',
+          email: 'agent@test.local',
+          role: Role.agent,
+          createdAt: '2026-07-06T05:52:59.272Z',
+        },
+      ],
+    });
+
+    renderUsersPage();
+
+    expect(await screen.findByRole('button', { name: 'Delete Test Agent' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete Admin' })).not.toBeInTheDocument();
+  });
+
+  it('opens the delete confirmation dialog with the row\'s user when its delete button is clicked', async () => {
+    mockedApiGet.mockResolvedValue({
+      users: [
+        {
+          id: '2',
+          name: 'Test Agent',
+          email: 'agent@test.local',
+          role: Role.agent,
+          createdAt: '2026-07-06T05:52:59.272Z',
+        },
+      ],
+    });
+    const user = userEvent.setup();
+
+    renderUsersPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Delete Test Agent' }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Delete user' })).toBeInTheDocument();
+    expect(within(dialog).getByText('Test Agent')).toBeInTheDocument();
+    expect(within(dialog).getByText('agent@test.local', { exact: false })).toBeInTheDocument();
+  });
+
+  it('hides the delete dialog when Cancel is clicked', async () => {
+    mockedApiGet.mockResolvedValue({
+      users: [
+        {
+          id: '2',
+          name: 'Test Agent',
+          email: 'agent@test.local',
+          role: Role.agent,
+          createdAt: '2026-07-06T05:52:59.272Z',
+        },
+      ],
+    });
+    const user = userEvent.setup();
+
+    renderUsersPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Delete Test Agent' }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }));

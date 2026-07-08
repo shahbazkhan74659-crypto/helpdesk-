@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { fromNodeHeaders } from 'better-auth/node';
 import { auth } from '../auth';
+import type { Role } from '../generated/prisma/client';
 
 type Session = Awaited<ReturnType<typeof auth.api.getSession>>;
 
@@ -15,7 +16,7 @@ declare global {
 }
 
 export const requireRole =
-  (...roles: Array<'admin' | 'agent'>) =>
+  (...roles: Array<Role>) =>
   async (req: Request, res: Response, next: NextFunction) => {
     const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
 

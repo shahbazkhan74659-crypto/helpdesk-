@@ -7,7 +7,7 @@ import { requireRole } from '../middleware/requireRole';
 
 export const usersRouter = Router();
 
-usersRouter.get('/', requireRole('admin'), async (_req, res) => {
+usersRouter.get('/', requireRole(Role.admin), async (_req, res) => {
   const users = await prisma.user.findMany({
     select: { id: true, name: true, email: true, role: true, createdAt: true },
     orderBy: { name: 'asc' },
@@ -21,7 +21,7 @@ const createUserSchema = z.object({
   password: z.string().trim().min(8, 'Password must be at least 8 characters'),
 });
 
-usersRouter.post('/', requireRole('admin'), async (req, res) => {
+usersRouter.post('/', requireRole(Role.admin), async (req, res) => {
   const parsed = createUserSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(422).json({ error: 'invalid_request' });
@@ -65,7 +65,7 @@ const editUserSchema = createUserSchema.extend({
     .optional(),
 });
 
-usersRouter.patch('/:id', requireRole('admin'), async (req, res) => {
+usersRouter.patch('/:id', requireRole(Role.admin), async (req, res) => {
   const parsed = editUserSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(422).json({ error: 'invalid_request' });
@@ -101,4 +101,34 @@ usersRouter.patch('/:id', requireRole('admin'), async (req, res) => {
   res.json({
     user: { id: user.id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt },
   });
+});
+
+usersRouter.delete('/:id', requireRole(Role.admin), async (req, res) => {
+  const id = req.params.id as string;
+
+  if (req.session!.user.id === id) {
+    res.status(400).json({ error: 'cannot_delete_self' });
+    return;
+  }
+
+  const existingUser = await prisma.user.findUnique({ where: { id } });
+  if (!existingUser) {
+    res.status(404).json({ error: 'user_not_found' });
+    return;
+  }
+
+  await prisma.$transaction([
+    prisma.deletedUser.create({
+      data: {
+        id: existingUser.id,
+        name: existingUser.name,
+        email: existingUser.email,
+        role: existingUser.role,
+        createdAt: existingUser.createdAt,
+      },
+    }),
+    prisma.user.delete({ where: { id } }),
+  ]);
+
+  res.json({ success: true });
 });

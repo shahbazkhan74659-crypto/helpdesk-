@@ -38,6 +38,20 @@ model User {
   @@map("user")
 }
 
+// A snapshot of a deleted User row. Admin-initiated deletes move the row here
+// (rather than flagging it in place) and hard-delete the original User, which
+// cascades to that user's Session/Account rows.
+model DeletedUser {
+  id        String   @id
+  name      String
+  email     String
+  role      Role
+  createdAt DateTime
+  deletedAt DateTime @default(now())
+
+  @@map("deleted_users")
+}
+
 model Session {
   id        String   @id
   expiresAt DateTime

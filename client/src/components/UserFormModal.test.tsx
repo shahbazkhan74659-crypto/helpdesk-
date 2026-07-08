@@ -2,6 +2,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, apiPatch, apiPost } from '../lib/api';
+import { Role } from '../lib/role';
 import { renderWithQuery } from '../test/renderWithQuery';
 import UserFormModal from './UserFormModal';
 
@@ -17,7 +18,7 @@ const existingUser = {
   id: 'user-1',
   name: 'Jane Doe',
   email: 'jane@test.local',
-  role: 'agent' as const,
+  role: Role.agent,
   createdAt: '2026-07-05T17:41:22.695Z',
 };
 
@@ -113,7 +114,7 @@ describe('UserFormModal — create mode', () => {
 
   it('creates the user and closes the modal on valid submit', async () => {
     mockedApiPost.mockResolvedValue({
-      user: { id: '1', name: 'Jane Doe', email: 'jane@test.local', role: 'agent', createdAt: '2026-07-08T00:00:00.000Z' },
+      user: { id: '1', name: 'Jane Doe', email: 'jane@test.local', role: Role.agent, createdAt: '2026-07-08T00:00:00.000Z' },
     });
     const user = userEvent.setup();
     const { onOpenChange } = renderCreateModal();

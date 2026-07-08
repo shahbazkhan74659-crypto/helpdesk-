@@ -1,4 +1,4 @@
-import { Pencil } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,10 +10,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Role } from '../lib/role';
 
 const SKELETON_ROWS = 3;
-
-export type Role = 'admin' | 'agent';
 
 export type User = {
   id: string;
@@ -27,9 +26,10 @@ type UsersTableProps = {
   users: User[] | undefined;
   isPending: boolean;
   onEdit: (user: User) => void;
+  onDelete: (user: User) => void;
 };
 
-function UsersTable({ users, isPending, onEdit }: UsersTableProps) {
+function UsersTable({ users, isPending, onEdit, onDelete }: UsersTableProps) {
   return (
     <Table>
       <TableHeader>
@@ -65,7 +65,7 @@ function UsersTable({ users, isPending, onEdit }: UsersTableProps) {
                 <TableCell>{user.name}</TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>
-                  {user.role === 'admin' ? (
+                  {user.role === Role.admin ? (
                     <Badge className="capitalize">{user.role}</Badge>
                   ) : (
                     <span className="capitalize">{user.role}</span>
@@ -81,6 +81,16 @@ function UsersTable({ users, isPending, onEdit }: UsersTableProps) {
                   >
                     <Pencil />
                   </Button>
+                  {user.role !== Role.admin && (
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Delete ${user.name}`}
+                      onClick={() => onDelete(user)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

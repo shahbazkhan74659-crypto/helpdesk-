@@ -42,3 +42,11 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   }
   return res.json() as Promise<T>;
 }
+
+export async function apiDelete<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, { method: 'DELETE', credentials: 'include' });
+  if (!res.ok) {
+    throw new ApiError(res.status, `Request to ${path} failed with status ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}

@@ -1,6 +1,7 @@
 import { auth } from '../src/auth';
 import { config } from '../src/config';
 import { prisma } from '../src/db';
+import { Role } from '../src/generated/prisma/client';
 
 async function main() {
   if (!config.ADMIN_EMAIL || !config.ADMIN_PASSWORD) {
@@ -20,7 +21,7 @@ async function main() {
     email,
     name: 'Admin',
     emailVerified: true,
-    role: 'admin',
+    role: Role.admin,
   });
   await ctx.internalAdapter.linkAccount({
     userId: user.id,
