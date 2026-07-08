@@ -4,7 +4,7 @@ import express from 'express';
 import { auth } from './auth';
 import { config } from './config';
 import { prisma } from './db';
-import { requireRole } from './middleware/requireRole';
+import { usersRouter } from './routes/users';
 
 const app = express();
 const port = config.PORT;
@@ -27,13 +27,7 @@ app.get('/health/db', async (_req, res) => {
   }
 });
 
-app.get('/api/users', requireRole('admin'), async (_req, res) => {
-  const users = await prisma.user.findMany({
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
-    orderBy: { name: 'asc' },
-  });
-  res.json({ users });
-});
+app.use('/api/users', usersRouter);
 
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);

@@ -4,9 +4,10 @@ import { apiGet } from '../lib/api';
 import { renderWithQuery } from '../test/renderWithQuery';
 import UsersPage from './UsersPage';
 
-vi.mock('../lib/api', () => ({
-  apiGet: vi.fn(),
-}));
+vi.mock('../lib/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/api')>();
+  return { ...actual, apiGet: vi.fn(), apiPost: vi.fn() };
+});
 
 const mockedApiGet = vi.mocked(apiGet);
 
@@ -74,5 +75,13 @@ describe('UsersPage', () => {
 
     expect(await screen.findByText('Failed to load users. Please try again.')).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('renders a "Create user" button above the table', () => {
+    mockedApiGet.mockReturnValue(new Promise(() => {}));
+
+    renderUsersPage();
+
+    expect(screen.getByRole('button', { name: 'Create user' })).toBeInTheDocument();
   });
 });

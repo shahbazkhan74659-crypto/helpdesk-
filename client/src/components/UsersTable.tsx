@@ -1,0 +1,77 @@
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+
+const SKELETON_ROWS = 3;
+
+export type Role = 'admin' | 'agent';
+
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  createdAt: string;
+};
+
+type UsersTableProps = {
+  users: User[] | undefined;
+  isPending: boolean;
+};
+
+function UsersTable({ users, isPending }: UsersTableProps) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Name</TableHead>
+          <TableHead>Email</TableHead>
+          <TableHead>Role</TableHead>
+          <TableHead>Joined</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {isPending
+          ? Array.from({ length: SKELETON_ROWS }).map((_, i) => (
+              <TableRow key={i}>
+                <TableCell>
+                  <Skeleton className="h-4 w-24" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-40" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-14" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-20" />
+                </TableCell>
+              </TableRow>
+            ))
+          : (users ?? []).map((user) => (
+              <TableRow key={user.id}>
+                <TableCell>{user.name}</TableCell>
+                <TableCell>{user.email}</TableCell>
+                <TableCell>
+                  {user.role === 'admin' ? (
+                    <Badge className="capitalize">{user.role}</Badge>
+                  ) : (
+                    <span className="capitalize">{user.role}</span>
+                  )}
+                </TableCell>
+                <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+              </TableRow>
+            ))}
+      </TableBody>
+    </Table>
+  );
+}
+
+export default UsersTable;
