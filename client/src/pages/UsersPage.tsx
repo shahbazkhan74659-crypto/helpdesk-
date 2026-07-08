@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -21,31 +21,21 @@ type User = {
 };
 
 function UsersPage() {
-  const [users, setUsers] = useState<User[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    apiGet<{ users: User[] }>('/api/users')
-      .then((data) => {
-        if (!cancelled) setUsers(data.users);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Failed to load users. Please try again.');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const {
+    data: users,
+    isPending,
+    isError,
+  } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => apiGet<{ users: User[] }>('/api/users').then((data) => data.users),
+  });
 
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-lg font-semibold text-gray-900">Users</h1>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {!error && !users && <p className="text-sm text-gray-500">Loading users...</p>}
+      {isError && <p className="text-sm text-destructive">Failed to load users. Please try again.</p>}
+      {isPending && <p className="text-sm text-gray-500">Loading users...</p>}
 
       {users && (
         <Table>
