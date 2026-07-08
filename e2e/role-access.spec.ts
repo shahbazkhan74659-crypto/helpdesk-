@@ -35,10 +35,11 @@ test.describe('agent', () => {
 });
 
 test.describe('anonymous', () => {
-  test('visiting /users directly is redirected to the home page', async ({ page }) => {
+  test('visiting /users directly is redirected to the login page', async ({ page }) => {
     await page.goto('/users');
 
-    await expect(page).toHaveURL('/');
-    await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.getByRole('button', { name: 'Log in' })).toBeVisible();
+    await expect(page.getByLabel('Email')).toBeVisible();
   });
 });

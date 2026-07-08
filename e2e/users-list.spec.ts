@@ -17,17 +17,18 @@ test.describe('users table content', () => {
     await expect(headerRow.getByRole('columnheader', { name: 'Role' })).toBeVisible();
     await expect(headerRow.getByRole('columnheader', { name: 'Joined' })).toBeVisible();
 
-    // Sorted by name ascending server-side, so "Admin" precedes "Test Agent".
-    const rows = page.getByRole('row');
-    await expect(rows).toHaveCount(3);
-
-    const adminRow = rows.nth(1);
+    // There is no per-test DB reset, and other specs (e.g. user-management.spec.ts)
+    // create/delete their own throwaway users in parallel, so the table can hold
+    // more than just the two seeded rows at any given moment. Look up the seeded
+    // admin/agent rows by their known email rather than asserting a total row
+    // count or relying on row order.
+    const adminRow = page.getByRole('row', { name: ADMIN_EMAIL });
     await expect(adminRow.getByRole('cell').nth(0)).toHaveText('Admin');
     await expect(adminRow.getByRole('cell').nth(1)).toHaveText(ADMIN_EMAIL);
     await expect(adminRow.getByRole('cell').nth(2)).toHaveText('admin');
     await expect(adminRow.getByRole('cell').nth(3)).toHaveText(/\d/);
 
-    const agentRow = rows.nth(2);
+    const agentRow = page.getByRole('row', { name: AGENT_EMAIL });
     await expect(agentRow.getByRole('cell').nth(0)).toHaveText('Test Agent');
     await expect(agentRow.getByRole('cell').nth(1)).toHaveText(AGENT_EMAIL);
     await expect(agentRow.getByRole('cell').nth(2)).toHaveText('agent');
