@@ -1,3 +1,12 @@
+import {
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+  type OnChangeFn,
+  type SortingState,
+} from '@tanstack/react-table';
+import { ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -25,6 +34,8 @@ export type Ticket = {
 type TicketsTableProps = {
   tickets: Ticket[] | undefined;
   isPending: boolean;
+  sorting: SortingState;
+  onSortingChange: OnChangeFn<SortingState>;
 };
 
 const priorityBadgeVariant: Record<TicketPriority, 'secondary' | 'default' | 'destructive'> = {
@@ -40,18 +51,73 @@ const statusBadgeClassName: Record<TicketStatus, string> = {
   [TicketStatus.closed]: 'bg-gray-200 text-black',
 };
 
-function TicketsTable({ tickets, isPending }: TicketsTableProps) {
+const columnHelper = createColumnHelper<Ticket>();
+
+// Column ids must match the server's whitelisted sort fields (server/src/routes/tickets.ts)
+// since they're sent back as the `sortBy` query param.
+const columns = [
+  columnHelper.accessor('subject', { header: 'Subject' }),
+  columnHelper.accessor('studentEmail', { header: 'Requester' }),
+  columnHelper.accessor('status', {
+    header: 'Status',
+    cell: (info) => (
+      <Badge variant="secondary" className={`capitalize ${statusBadgeClassName[info.getValue()]}`}>
+        {info.getValue()}
+      </Badge>
+    ),
+  }),
+  columnHelper.accessor('priority', {
+    header: 'Priority',
+    cell: (info) => (
+      <Badge variant={priorityBadgeVariant[info.getValue()]} className="capitalize">
+        {info.getValue()}
+      </Badge>
+    ),
+  }),
+  columnHelper.accessor('category', { header: 'Category', cell: () => null }),
+  columnHelper.accessor('createdAt', {
+    header: 'Created',
+    cell: (info) => new Date(info.getValue()).toLocaleDateString(),
+  }),
+];
+
+function TicketsTable({ tickets, isPending, sorting, onSortingChange }: TicketsTableProps) {
+  const table = useReactTable({
+    data: tickets ?? [],
+    columns,
+    state: { sorting },
+    onSortingChange,
+    manualSorting: true,
+    enableMultiSort: false,
+    enableSortingRemoval: false,
+    sortDescFirst: false,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
   return (
     <Table>
       <TableHeader>
-        <TableRow>
-          <TableHead>Subject</TableHead>
-          <TableHead>Requester</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Priority</TableHead>
-          <TableHead>Category</TableHead>
-          <TableHead>Created</TableHead>
-        </TableRow>
+        {table.getHeaderGroups().map((headerGroup) => (
+          <TableRow key={headerGroup.id}>
+            {headerGroup.headers.map((header) => {
+              const sortDirection = header.column.getIsSorted();
+              return (
+                <TableHead key={header.id}>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 font-medium"
+                    onClick={header.column.getToggleSortingHandler()}
+                  >
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                    {sortDirection === 'asc' && <ChevronUp className="size-3.5" />}
+                    {sortDirection === 'desc' && <ChevronDown className="size-3.5" />}
+                    {!sortDirection && <ChevronsUpDown className="size-3.5 text-muted-foreground" />}
+                  </button>
+                </TableHead>
+              );
+            })}
+          </TableRow>
+        ))}
       </TableHeader>
       <TableBody>
         {isPending
@@ -75,22 +141,11 @@ function TicketsTable({ tickets, isPending }: TicketsTableProps) {
                 </TableCell>
               </TableRow>
             ))
-          : (tickets ?? []).map((ticket) => (
-              <TableRow key={ticket.id}>
-                <TableCell>{ticket.subject}</TableCell>
-                <TableCell>{ticket.studentEmail}</TableCell>
-                <TableCell>
-                  <Badge variant="secondary" className={`capitalize ${statusBadgeClassName[ticket.status]}`}>
-                    {ticket.status}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={priorityBadgeVariant[ticket.priority]} className="capitalize">
-                    {ticket.priority}
-                  </Badge>
-                </TableCell>
-                <TableCell />
-                <TableCell>{new Date(ticket.createdAt).toLocaleDateString()}</TableCell>
+          : table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id}>
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                ))}
               </TableRow>
             ))}
       </TableBody>

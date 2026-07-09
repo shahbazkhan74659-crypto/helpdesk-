@@ -1,4 +1,5 @@
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiGet } from '../lib/api';
 import { TicketPriority, TicketStatus } from '../lib/ticket';
@@ -70,5 +71,38 @@ describe('TicketsPage', () => {
 
     expect(await screen.findByText('Failed to load tickets. Please try again.')).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('requests tickets sorted by createdAt desc by default', async () => {
+    mockedApiGet.mockResolvedValue({ tickets: [] });
+
+    renderTicketsPage();
+
+    await screen.findByRole('table');
+    expect(mockedApiGet).toHaveBeenCalledWith('/api/tickets?sortBy=createdAt&sortDir=desc');
+  });
+
+  it('re-fetches with the new column and ascending direction when a header is clicked', async () => {
+    const user = userEvent.setup();
+    mockedApiGet.mockResolvedValue({ tickets: [] });
+
+    renderTicketsPage();
+
+    await screen.findByRole('table');
+    await user.click(screen.getByRole('button', { name: /requester/i }));
+
+    expect(mockedApiGet).toHaveBeenLastCalledWith('/api/tickets?sortBy=studentEmail&sortDir=asc');
+  });
+
+  it('toggles direction when the same header is clicked again', async () => {
+    const user = userEvent.setup();
+    mockedApiGet.mockResolvedValue({ tickets: [] });
+
+    renderTicketsPage();
+
+    await screen.findByRole('table');
+    await user.click(screen.getByRole('button', { name: /created/i }));
+
+    expect(mockedApiGet).toHaveBeenLastCalledWith('/api/tickets?sortBy=createdAt&sortDir=asc');
   });
 });
