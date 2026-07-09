@@ -15,3 +15,17 @@ if (!process.env.DATABASE_URL) {
 }
 
 export const DATABASE_URL = process.env.DATABASE_URL;
+
+// BETTER_AUTH_URL is the test server's own base URL (see server/.env.test) -
+// reused here rather than introducing a separate SERVER_URL var.
+if (!process.env.BETTER_AUTH_URL) {
+  throw new Error('BETTER_AUTH_URL is not set - is server/.env.test present and populated?');
+}
+
+export const SERVER_URL = process.env.BETTER_AUTH_URL;
+
+if (!process.env.INBOUND_EMAIL_WEBHOOK_SECRET) {
+  throw new Error('INBOUND_EMAIL_WEBHOOK_SECRET is not set - is server/.env.test present and populated?');
+}
+
+export const WEBHOOK_SECRET = process.env.INBOUND_EMAIL_WEBHOOK_SECRET;
