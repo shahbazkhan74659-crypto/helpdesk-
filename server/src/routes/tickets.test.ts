@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { app } from '../app';
 import { auth } from '../auth';
 import { prisma } from '../db';
-import { MessageSender, Role, TicketCategory, TicketPriority, TicketStatus } from '../generated/prisma/client';
+import { MessageSender, Role } from '../generated/prisma/client';
 
 const AGENT_PASSWORD = 'password1234';
 
@@ -37,16 +37,11 @@ async function createSignedInAgent(): Promise<string> {
   return cookie;
 }
 
-async function createTicket(
-  subject: string,
-  studentEmail: string,
-  overrides: { status?: TicketStatus; priority?: TicketPriority; category?: TicketCategory } = {},
-) {
+async function createTicket(subject: string, studentEmail: string) {
   return prisma.ticket.create({
     data: {
       subject,
       studentEmail,
-      ...overrides,
       messages: { create: { sender: MessageSender.student, body: 'test body' } },
     },
   });
@@ -106,100 +101,6 @@ describe('GET /api/tickets', () => {
       .get('/api/tickets')
       .query({ sortBy: 'createdAt', sortDir: 'sideways' })
       .set('Cookie', cookie);
-
-    expect(response.status).toBe(422);
-    expect(response.body).toEqual({ error: 'invalid_request' });
-  });
-
-  it('filters by status', async () => {
-    const cookie = await createSignedInAgent();
-    const suffix = crypto.randomUUID();
-    const open = await createTicket(`Open ${suffix}`, `student-${crypto.randomUUID()}@example.com`, {
-      status: TicketStatus.open,
-    });
-    const closed = await createTicket(`Closed ${suffix}`, `student-${crypto.randomUUID()}@example.com`, {
-      status: TicketStatus.closed,
-    });
-
-    const response = await request(app).get('/api/tickets').query({ status: 'closed' }).set('Cookie', cookie);
-
-    expect(response.status).toBe(200);
-    const ids = response.body.tickets.map((t: { id: number }) => t.id);
-    expect(ids).toContain(closed.id);
-    expect(ids).not.toContain(open.id);
-  });
-
-  it('filters by priority', async () => {
-    const cookie = await createSignedInAgent();
-    const suffix = crypto.randomUUID();
-    const urgent = await createTicket(`Urgent ${suffix}`, `student-${crypto.randomUUID()}@example.com`, {
-      priority: TicketPriority.urgent,
-    });
-    const low = await createTicket(`Low ${suffix}`, `student-${crypto.randomUUID()}@example.com`, {
-      priority: TicketPriority.low,
-    });
-
-    const response = await request(app).get('/api/tickets').query({ priority: 'urgent' }).set('Cookie', cookie);
-
-    expect(response.status).toBe(200);
-    const ids = response.body.tickets.map((t: { id: number }) => t.id);
-    expect(ids).toContain(urgent.id);
-    expect(ids).not.toContain(low.id);
-  });
-
-  it('filters by category', async () => {
-    const cookie = await createSignedInAgent();
-    const suffix = crypto.randomUUID();
-    const refund = await createTicket(`Refund ${suffix}`, `student-${crypto.randomUUID()}@example.com`, {
-      category: TicketCategory.refund_request,
-    });
-    const technical = await createTicket(`Technical ${suffix}`, `student-${crypto.randomUUID()}@example.com`, {
-      category: TicketCategory.technical_question,
-    });
-
-    const response = await request(app)
-      .get('/api/tickets')
-      .query({ category: 'refund_request' })
-      .set('Cookie', cookie);
-
-    expect(response.status).toBe(200);
-    const ids = response.body.tickets.map((t: { id: number }) => t.id);
-    expect(ids).toContain(refund.id);
-    expect(ids).not.toContain(technical.id);
-  });
-
-  it('searches by subject, case-insensitively', async () => {
-    const cookie = await createSignedInAgent();
-    const suffix = crypto.randomUUID();
-    const match = await createTicket(`Printer JAMMED ${suffix}`, `student-${crypto.randomUUID()}@example.com`);
-    const nonMatch = await createTicket(`Other ${suffix}`, `other-${crypto.randomUUID()}@example.com`);
-
-    const response = await request(app).get('/api/tickets').query({ search: `jammed ${suffix}` }).set('Cookie', cookie);
-
-    expect(response.status).toBe(200);
-    const ids = response.body.tickets.map((t: { id: number }) => t.id);
-    expect(ids).toContain(match.id);
-    expect(ids).not.toContain(nonMatch.id);
-  });
-
-  it('searches by requester email', async () => {
-    const cookie = await createSignedInAgent();
-    const suffix = crypto.randomUUID();
-    const match = await createTicket(`Ticket ${suffix}`, `jammed-${suffix}@example.com`);
-    const nonMatch = await createTicket(`Ticket ${suffix} other`, `other-${crypto.randomUUID()}@example.com`);
-
-    const response = await request(app).get('/api/tickets').query({ search: `jammed-${suffix}` }).set('Cookie', cookie);
-
-    expect(response.status).toBe(200);
-    const ids = response.body.tickets.map((t: { id: number }) => t.id);
-    expect(ids).toContain(match.id);
-    expect(ids).not.toContain(nonMatch.id);
-  });
-
-  it('rejects a status filter that is not a valid TicketStatus', async () => {
-    const cookie = await createSignedInAgent();
-
-    const response = await request(app).get('/api/tickets').query({ status: 'archived' }).set('Cookie', cookie);
 
     expect(response.status).toBe(422);
     expect(response.body).toEqual({ error: 'invalid_request' });

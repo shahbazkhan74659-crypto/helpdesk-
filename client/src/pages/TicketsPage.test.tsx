@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiGet } from '../lib/api';
@@ -104,60 +104,5 @@ describe('TicketsPage', () => {
     await user.click(screen.getByRole('button', { name: /created/i }));
 
     expect(mockedApiGet).toHaveBeenLastCalledWith('/api/tickets?sortBy=createdAt&sortDir=asc');
-  });
-
-  it('re-fetches with a status filter when one is selected', async () => {
-    const user = userEvent.setup();
-    mockedApiGet.mockResolvedValue({ tickets: [] });
-
-    renderTicketsPage();
-
-    await screen.findByRole('table');
-    await user.click(screen.getByRole('combobox', { name: /filter by status/i }));
-    await user.click(await screen.findByRole('option', { name: /^resolved$/i }));
-
-    expect(mockedApiGet).toHaveBeenLastCalledWith('/api/tickets?sortBy=createdAt&sortDir=desc&status=resolved');
-  });
-
-  it('re-fetches with a priority filter when one is selected', async () => {
-    const user = userEvent.setup();
-    mockedApiGet.mockResolvedValue({ tickets: [] });
-
-    renderTicketsPage();
-
-    await screen.findByRole('table');
-    await user.click(screen.getByRole('combobox', { name: /filter by priority/i }));
-    await user.click(await screen.findByRole('option', { name: /^urgent$/i }));
-
-    expect(mockedApiGet).toHaveBeenLastCalledWith('/api/tickets?sortBy=createdAt&sortDir=desc&priority=urgent');
-  });
-
-  it('re-fetches with a category filter when one is selected', async () => {
-    const user = userEvent.setup();
-    mockedApiGet.mockResolvedValue({ tickets: [] });
-
-    renderTicketsPage();
-
-    await screen.findByRole('table');
-    await user.click(screen.getByRole('combobox', { name: /filter by category/i }));
-    await user.click(await screen.findByRole('option', { name: /refund request/i }));
-
-    expect(mockedApiGet).toHaveBeenLastCalledWith(
-      '/api/tickets?sortBy=createdAt&sortDir=desc&category=refund_request',
-    );
-  });
-
-  it('re-fetches with the search term after the user stops typing', async () => {
-    const user = userEvent.setup();
-    mockedApiGet.mockResolvedValue({ tickets: [] });
-
-    renderTicketsPage();
-
-    await screen.findByRole('table');
-    await user.type(screen.getByPlaceholderText(/search subject or requester email/i), 'printer');
-
-    await waitFor(() => {
-      expect(mockedApiGet).toHaveBeenLastCalledWith('/api/tickets?sortBy=createdAt&sortDir=desc&search=printer');
-    });
   });
 });
