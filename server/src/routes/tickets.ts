@@ -69,13 +69,61 @@ ticketsRouter.get('/:id', requireRole(Role.admin, Role.agent), async (req, res) 
 
   const ticket = await prisma.ticket.findUnique({
     where: { id: parsed.data.id },
-    include: { messages: { orderBy: { sentAt: 'asc' } } },
+    include: {
+      messages: { orderBy: { sentAt: 'asc' } },
+      assignedAgent: { select: { id: true, name: true, email: true } },
+    },
   });
 
   if (!ticket) {
     res.status(404).json({ error: 'not_found' });
     return;
   }
+
+  res.json(ticket);
+});
+
+const assignTicketSchema = z.object({
+  assignedAgentId: z.string().min(1).nullable(),
+});
+
+ticketsRouter.patch('/:id/assign', requireRole(Role.admin, Role.agent), async (req, res) => {
+  const paramsParsed = ticketIdParamsSchema.safeParse(req.params);
+  if (!paramsParsed.success) {
+    res.status(422).json({ error: 'invalid_request' });
+    return;
+  }
+
+  const bodyParsed = assignTicketSchema.safeParse(req.body);
+  if (!bodyParsed.success) {
+    res.status(422).json({ error: 'invalid_request' });
+    return;
+  }
+
+  const { assignedAgentId } = bodyParsed.data;
+
+  if (assignedAgentId) {
+    const agent = await prisma.user.findUnique({ where: { id: assignedAgentId } });
+    if (!agent || agent.role !== Role.agent) {
+      res.status(422).json({ error: 'invalid_agent' });
+      return;
+    }
+  }
+
+  const existing = await prisma.ticket.findUnique({ where: { id: paramsParsed.data.id } });
+  if (!existing) {
+    res.status(404).json({ error: 'not_found' });
+    return;
+  }
+
+  const ticket = await prisma.ticket.update({
+    where: { id: paramsParsed.data.id },
+    data: { assignedAgentId },
+    include: {
+      messages: { orderBy: { sentAt: 'asc' } },
+      assignedAgent: { select: { id: true, name: true, email: true } },
+    },
+  });
 
   res.json(ticket);
 });

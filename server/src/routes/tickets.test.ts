@@ -37,6 +37,24 @@ async function createSignedInAgent(): Promise<string> {
   return cookie;
 }
 
+async function createAgent(name = 'Assignable Agent') {
+  const ctx = await auth.$context;
+  const hash = await ctx.password.hash(AGENT_PASSWORD);
+  const user = await ctx.internalAdapter.createUser({
+    email: `agent-${crypto.randomUUID()}@example.com`,
+    name,
+    emailVerified: true,
+    role: Role.agent,
+  });
+  await ctx.internalAdapter.linkAccount({
+    userId: user.id,
+    providerId: 'credential',
+    accountId: user.id,
+    password: hash,
+  });
+  return user;
+}
+
 async function createTicket(
   subject: string,
   studentEmail: string,
@@ -319,5 +337,109 @@ describe('GET /api/tickets/:id', () => {
 
     expect(response.status).toBe(422);
     expect(response.body).toEqual({ error: 'invalid_request' });
+  });
+
+  it('includes the assigned agent when the ticket has one', async () => {
+    const cookie = await createSignedInAgent();
+    const agent = await createAgent('Assigned Agent');
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
+    await prisma.ticket.update({ where: { id: ticket.id }, data: { assignedAgentId: agent.id } });
+
+    const response = await request(app).get(`/api/tickets/${ticket.id}`).set('Cookie', cookie);
+
+    expect(response.status).toBe(200);
+    expect(response.body.assignedAgent).toEqual({ id: agent.id, name: agent.name, email: agent.email });
+  });
+});
+
+describe('PATCH /api/tickets/:id/assign', () => {
+  it('rejects unauthenticated requests', async () => {
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
+
+    const response = await request(app).patch(`/api/tickets/${ticket.id}/assign`).send({ assignedAgentId: null });
+
+    expect(response.status).toBe(401);
+  });
+
+  it('assigns the ticket to an agent and bumps updatedAt', async () => {
+    const cookie = await createSignedInAgent();
+    const agent = await createAgent();
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
+
+    const response = await request(app)
+      .patch(`/api/tickets/${ticket.id}/assign`)
+      .set('Cookie', cookie)
+      .send({ assignedAgentId: agent.id });
+
+    expect(response.status).toBe(200);
+    expect(response.body.assignedAgent).toEqual({ id: agent.id, name: agent.name, email: agent.email });
+    expect(new Date(response.body.updatedAt).getTime()).toBeGreaterThan(new Date(ticket.updatedAt).getTime());
+  });
+
+  it('unassigns the ticket when assignedAgentId is null', async () => {
+    const cookie = await createSignedInAgent();
+    const agent = await createAgent();
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
+    await prisma.ticket.update({ where: { id: ticket.id }, data: { assignedAgentId: agent.id } });
+
+    const response = await request(app)
+      .patch(`/api/tickets/${ticket.id}/assign`)
+      .set('Cookie', cookie)
+      .send({ assignedAgentId: null });
+
+    expect(response.status).toBe(200);
+    expect(response.body.assignedAgent).toBeNull();
+  });
+
+  it('rejects assigning to a user that is not an agent', async () => {
+    const cookie = await createSignedInAgent();
+    const ctx = await auth.$context;
+    const hash = await ctx.password.hash(AGENT_PASSWORD);
+    const admin = await ctx.internalAdapter.createUser({
+      email: `admin-${crypto.randomUUID()}@example.com`,
+      name: 'Some Admin',
+      emailVerified: true,
+      role: Role.admin,
+    });
+    await ctx.internalAdapter.linkAccount({
+      userId: admin.id,
+      providerId: 'credential',
+      accountId: admin.id,
+      password: hash,
+    });
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
+
+    const response = await request(app)
+      .patch(`/api/tickets/${ticket.id}/assign`)
+      .set('Cookie', cookie)
+      .send({ assignedAgentId: admin.id });
+
+    expect(response.status).toBe(422);
+    expect(response.body).toEqual({ error: 'invalid_agent' });
+  });
+
+  it('rejects an unknown agent id', async () => {
+    const cookie = await createSignedInAgent();
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
+
+    const response = await request(app)
+      .patch(`/api/tickets/${ticket.id}/assign`)
+      .set('Cookie', cookie)
+      .send({ assignedAgentId: 'does-not-exist' });
+
+    expect(response.status).toBe(422);
+    expect(response.body).toEqual({ error: 'invalid_agent' });
+  });
+
+  it('returns 404 for a ticket that does not exist', async () => {
+    const cookie = await createSignedInAgent();
+
+    const response = await request(app)
+      .patch('/api/tickets/999999999/assign')
+      .set('Cookie', cookie)
+      .send({ assignedAgentId: null });
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'not_found' });
   });
 });

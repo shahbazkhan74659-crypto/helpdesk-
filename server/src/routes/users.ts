@@ -15,6 +15,19 @@ usersRouter.get('/', requireRole(Role.admin), async (_req, res) => {
   res.json({ users });
 });
 
+// Agent-only roster for the ticket-assignment dropdown - deliberately
+// broader access than GET / (admin+agent, not admin-only) since agents
+// need it to assign tickets to themselves or a teammate, but scoped to
+// just id/name/email for role=agent so it doesn't leak the full user list.
+usersRouter.get('/agents', requireRole(Role.admin, Role.agent), async (_req, res) => {
+  const agents = await prisma.user.findMany({
+    where: { role: Role.agent },
+    select: { id: true, name: true, email: true },
+    orderBy: { name: 'asc' },
+  });
+  res.json({ agents });
+});
+
 const createUserSchema = z.object({
   name: z.string().trim().min(3, 'Name must be at least 3 characters'),
   email: z.string().email('Enter a valid email'),
