@@ -7,6 +7,7 @@ import {
   type SortingState,
 } from '@tanstack/react-table';
 import { ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -38,14 +39,14 @@ type TicketsTableProps = {
   onSortingChange: OnChangeFn<SortingState>;
 };
 
-const priorityBadgeVariant: Record<TicketPriority, 'secondary' | 'default' | 'destructive'> = {
+export const priorityBadgeVariant: Record<TicketPriority, 'secondary' | 'default' | 'destructive'> = {
   [TicketPriority.low]: 'secondary',
   [TicketPriority.medium]: 'secondary',
   [TicketPriority.high]: 'default',
   [TicketPriority.urgent]: 'destructive',
 };
 
-const statusBadgeClassName: Record<TicketStatus, string> = {
+export const statusBadgeClassName: Record<TicketStatus, string> = {
   [TicketStatus.open]: 'bg-red-100 text-red-700',
   [TicketStatus.resolved]: 'bg-blue-100 text-blue-700',
   [TicketStatus.closed]: 'bg-gray-200 text-black',
@@ -56,7 +57,14 @@ const columnHelper = createColumnHelper<Ticket>();
 // Column ids must match the server's whitelisted sort fields (server/src/routes/tickets.ts)
 // since they're sent back as the `sortBy` query param.
 const columns = [
-  columnHelper.accessor('subject', { header: 'Subject' }),
+  columnHelper.accessor('subject', {
+    header: 'Subject',
+    cell: (info) => (
+      <Link to={`/tickets/${info.row.original.id}`} className="font-medium text-primary hover:underline">
+        {info.getValue()}
+      </Link>
+    ),
+  }),
   columnHelper.accessor('studentEmail', { header: 'Requester' }),
   columnHelper.accessor('status', {
     header: 'Status',

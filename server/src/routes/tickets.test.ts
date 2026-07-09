@@ -276,3 +276,48 @@ describe('GET /api/tickets', () => {
     expect(response.body).toEqual({ error: 'invalid_request' });
   });
 });
+
+describe('GET /api/tickets/:id', () => {
+  it('rejects unauthenticated requests', async () => {
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
+
+    const response = await request(app).get(`/api/tickets/${ticket.id}`);
+
+    expect(response.status).toBe(401);
+  });
+
+  it('returns the ticket with its messages in send order', async () => {
+    const cookie = await createSignedInAgent();
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
+    await prisma.ticketMessage.create({
+      data: { ticketId: ticket.id, sender: MessageSender.agent, body: 'Reply body' },
+    });
+
+    const response = await request(app).get(`/api/tickets/${ticket.id}`).set('Cookie', cookie);
+
+    expect(response.status).toBe(200);
+    expect(response.body.id).toBe(ticket.id);
+    expect(response.body.subject).toBe(ticket.subject);
+    expect(response.body.messages).toHaveLength(2);
+    expect(response.body.messages[0].body).toBe('test body');
+    expect(response.body.messages[1].body).toBe('Reply body');
+  });
+
+  it('returns 404 for a ticket that does not exist', async () => {
+    const cookie = await createSignedInAgent();
+
+    const response = await request(app).get('/api/tickets/999999999').set('Cookie', cookie);
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'not_found' });
+  });
+
+  it('rejects a non-numeric id', async () => {
+    const cookie = await createSignedInAgent();
+
+    const response = await request(app).get('/api/tickets/not-a-number').set('Cookie', cookie);
+
+    expect(response.status).toBe(422);
+    expect(response.body).toEqual({ error: 'invalid_request' });
+  });
+});

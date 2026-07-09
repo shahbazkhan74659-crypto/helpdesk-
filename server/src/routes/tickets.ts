@@ -55,3 +55,27 @@ ticketsRouter.get('/', requireRole(Role.admin, Role.agent), async (req, res) => 
 
   res.json({ tickets, total, page, pageSize });
 });
+
+const ticketIdParamsSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});
+
+ticketsRouter.get('/:id', requireRole(Role.admin, Role.agent), async (req, res) => {
+  const parsed = ticketIdParamsSchema.safeParse(req.params);
+  if (!parsed.success) {
+    res.status(422).json({ error: 'invalid_request' });
+    return;
+  }
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: parsed.data.id },
+    include: { messages: { orderBy: { sentAt: 'asc' } } },
+  });
+
+  if (!ticket) {
+    res.status(404).json({ error: 'not_found' });
+    return;
+  }
+
+  res.json(ticket);
+});
