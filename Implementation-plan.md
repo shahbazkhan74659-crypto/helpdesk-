@@ -44,7 +44,7 @@ Phases are ordered so each one produces a working, demoable slice. Later phases 
 - [ ] Seed script with sample tickets for local dev/testing
 - [ ] Backend tests for ticket CRUD endpoints
 
-**Status note (2026-07-09):** `tickets`/`ticket_messages` Prisma models + migration (`add_tickets`) exist, sized for what email intake (Phase 4) needs to write to — `kb_articles`, the ticket CRUD REST API, seed script, and backend tests are still not built.
+**Status note (2026-07-09):** `tickets`/`ticket_messages` Prisma models + migration (`add_tickets`) exist, sized for what email intake (Phase 4) needs to write to. `GET /api/tickets` (list, sorted newest-first) now exists (`server/src/routes/tickets.ts`) — `kb_articles`, create/detail/status-update endpoints, filter/sort params, the message-reply endpoint, seed script, and backend tests are still not built.
 
 ## Phase 3 — Core Frontend: Ticket Queue
 
@@ -53,6 +53,8 @@ Phases are ordered so each one produces a working, demoable slice. Later phases 
 - [ ] Agent actions on detail view: change status, reply manually, reassign
 - [ ] Basic responsive layout / navigation shell (queue, dashboard, KB, users)
 - [ ] Frontend tests for list/detail views (rendering, filter/sort behavior)
+
+**Status note (2026-07-09):** A basic ticket list view exists at `/tickets` (`client/src/pages/TicketsPage.tsx` + `TicketsTable.tsx`), showing Subject/Requester/Status/Priority/Created, sorted newest-first — no filtering, no sort-by-priority, and no detail/agent-actions view yet.
 
 At the end of Phase 3, the system is a working manual ticketing tool with no AI or email yet — a usable checkpoint.
 

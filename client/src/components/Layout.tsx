@@ -27,6 +27,14 @@ function Layout() {
             >
               Home
             </NavLink>
+            <NavLink
+              to="/tickets"
+              className={({ isActive }) =>
+                `text-sm ${isActive ? 'font-medium text-white' : 'text-gray-400 hover:text-white'}`
+              }
+            >
+              Tickets
+            </NavLink>
             {isAdmin && (
               <NavLink
                 to="/users"
