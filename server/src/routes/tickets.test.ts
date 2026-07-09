@@ -562,3 +562,57 @@ describe('PATCH /api/tickets/:id/category', () => {
     expect(response.body).toEqual({ error: 'not_found' });
   });
 });
+
+describe('POST /api/tickets/:id/messages', () => {
+  it('rejects unauthenticated requests', async () => {
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
+
+    const response = await request(app)
+      .post(`/api/tickets/${ticket.id}/messages`)
+      .send({ body: 'Thanks for reaching out.' });
+
+    expect(response.status).toBe(401);
+  });
+
+  it('adds an agent message to the thread and bumps updatedAt', async () => {
+    const cookie = await createSignedInAgent();
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
+
+    const response = await request(app)
+      .post(`/api/tickets/${ticket.id}/messages`)
+      .set('Cookie', cookie)
+      .send({ body: 'Thanks for reaching out.' });
+
+    expect(response.status).toBe(201);
+    expect(response.body.messages).toHaveLength(2);
+    const reply = response.body.messages[1];
+    expect(reply.body).toBe('Thanks for reaching out.');
+    expect(reply.sender).toBe('agent');
+    expect(new Date(response.body.updatedAt).getTime()).toBeGreaterThan(new Date(ticket.updatedAt).getTime());
+  });
+
+  it('rejects an empty body', async () => {
+    const cookie = await createSignedInAgent();
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
+
+    const response = await request(app)
+      .post(`/api/tickets/${ticket.id}/messages`)
+      .set('Cookie', cookie)
+      .send({ body: '   ' });
+
+    expect(response.status).toBe(422);
+    expect(response.body).toEqual({ error: 'invalid_request' });
+  });
+
+  it('returns 404 for a ticket that does not exist', async () => {
+    const cookie = await createSignedInAgent();
+
+    const response = await request(app)
+      .post('/api/tickets/999999999/messages')
+      .set('Cookie', cookie)
+      .send({ body: 'Thanks for reaching out.', senderType: 'agent' });
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'not_found' });
+  });
+});

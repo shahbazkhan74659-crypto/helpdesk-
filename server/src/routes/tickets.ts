@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db';
-import { Prisma, Role, TicketCategory, TicketPriority, TicketStatus } from '../generated/prisma/client';
+import { MessageSender, Prisma, Role, TicketCategory, TicketPriority, TicketStatus } from '../generated/prisma/client';
 import { requireRole } from '../middleware/requireRole';
 
 export const ticketsRouter = Router();
@@ -196,4 +196,43 @@ ticketsRouter.patch('/:id/category', requireRole(Role.admin, Role.agent), async 
   });
 
   res.json(ticket);
+});
+
+const addMessageSchema = z.object({
+  body: z.string().trim().min(1),
+});
+
+ticketsRouter.post('/:id/messages', requireRole(Role.admin, Role.agent), async (req, res) => {
+  const paramsParsed = ticketIdParamsSchema.safeParse(req.params);
+  if (!paramsParsed.success) {
+    res.status(422).json({ error: 'invalid_request' });
+    return;
+  }
+
+  const bodyParsed = addMessageSchema.safeParse(req.body);
+  if (!bodyParsed.success) {
+    res.status(422).json({ error: 'invalid_request' });
+    return;
+  }
+
+  const existing = await prisma.ticket.findUnique({ where: { id: paramsParsed.data.id } });
+  if (!existing) {
+    res.status(404).json({ error: 'not_found' });
+    return;
+  }
+
+  await prisma.ticketMessage.create({
+    data: { ticketId: paramsParsed.data.id, sender: MessageSender.agent, body: bodyParsed.data.body },
+  });
+
+  const ticket = await prisma.ticket.update({
+    where: { id: paramsParsed.data.id },
+    data: { updatedAt: new Date() },
+    include: {
+      messages: { orderBy: { sentAt: 'asc' } },
+      assignedAgent: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  res.status(201).json(ticket);
 });

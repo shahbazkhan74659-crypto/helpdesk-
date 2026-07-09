@@ -1,18 +1,19 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, apiGet, apiPatch } from '../lib/api';
+import { ApiError, apiGet, apiPatch, apiPost } from '../lib/api';
 import { MessageSender, TicketCategory, TicketPriority, TicketStatus } from '../lib/ticket';
 import { renderWithQuery } from '../test/renderWithQuery';
 import TicketDetailPage from './TicketDetailPage';
 
 vi.mock('../lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../lib/api')>();
-  return { ...actual, apiGet: vi.fn(), apiPatch: vi.fn() };
+  return { ...actual, apiGet: vi.fn(), apiPatch: vi.fn(), apiPost: vi.fn() };
 });
 
 const mockedApiGet = vi.mocked(apiGet);
 const mockedApiPatch = vi.mocked(apiPatch);
+const mockedApiPost = vi.mocked(apiPost);
 
 type Agent = { id: string; name: string; email: string };
 
@@ -65,6 +66,7 @@ describe('TicketDetailPage', () => {
   beforeEach(() => {
     mockedApiGet.mockReset();
     mockedApiPatch.mockReset();
+    mockedApiPost.mockReset();
   });
 
   it('shows skeletons while the request is pending', () => {
@@ -84,7 +86,7 @@ describe('TicketDetailPage', () => {
     expect(screen.getByText(/student@example\.edu/)).toBeInTheDocument();
     expect(screen.getByText('Assigned')).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: /assigned agent/i })).toHaveTextContent('Unassigned');
-    expect(screen.getByText('Updated at:')).toBeInTheDocument();
+    expect(screen.getByText(/^Updated:/)).toBeInTheDocument();
     expect(screen.getByText('open')).toBeInTheDocument();
     expect(screen.getByText('urgent')).toBeInTheDocument();
     expect(screen.getByText('It is jammed.')).toBeInTheDocument();
@@ -110,7 +112,7 @@ describe('TicketDetailPage', () => {
     });
 
     renderTicketDetailPage();
-    const updatedAtText = () => screen.getByText('Updated at:').closest('p')?.textContent ?? '';
+    const updatedAtText = () => screen.getByText(/^Updated:/).textContent ?? '';
     await screen.findByRole('combobox', { name: /assigned agent/i });
     const initialUpdatedAt = updatedAtText();
 
@@ -220,5 +222,29 @@ describe('TicketDetailPage', () => {
     renderTicketDetailPage();
 
     expect(await screen.findByText('Failed to load ticket. Please try again.')).toBeInTheDocument();
+  });
+
+  it('submits a reply and appends it to the replies list', async () => {
+    const user = userEvent.setup();
+    mockTicketAndAgents(BASE_TICKET);
+    const newMessage = {
+      id: 'm3',
+      sender: MessageSender.agent,
+      body: 'Try restarting the printer.',
+      sentAt: '2026-07-10T11:00:00.000Z',
+    };
+    mockedApiPost.mockResolvedValue({ ...BASE_TICKET, messages: [...BASE_TICKET.messages, newMessage] });
+
+    renderTicketDetailPage();
+
+    const textarea = await screen.findByLabelText('Reply');
+    await user.type(textarea, 'Try restarting the printer.');
+    await user.click(screen.getByRole('button', { name: 'Send Reply' }));
+
+    expect(mockedApiPost).toHaveBeenCalledWith('/api/tickets/42/messages', {
+      body: 'Try restarting the printer.',
+    });
+    expect(await screen.findByText('Try restarting the printer.')).toBeInTheDocument();
+    expect(textarea).toHaveValue('');
   });
 });
