@@ -44,6 +44,8 @@ Phases are ordered so each one produces a working, demoable slice. Later phases 
 - [ ] Seed script with sample tickets for local dev/testing
 - [ ] Backend tests for ticket CRUD endpoints
 
+**Status note (2026-07-09):** `tickets`/`ticket_messages` Prisma models + migration (`add_tickets`) exist, sized for what email intake (Phase 4) needs to write to — `kb_articles`, the ticket CRUD REST API, seed script, and backend tests are still not built.
+
 ## Phase 3 — Core Frontend: Ticket Queue
 
 - [ ] Ticket list view: table with filtering (status, priority, category) and sorting (date, priority)
@@ -64,6 +66,8 @@ At the end of Phase 3, the system is a working manual ticketing tool with no AI 
 - [ ] Handle outbound replies: sending agent/AI replies back through Gmail API on the same thread
 - [ ] Error handling: malformed emails, duplicate delivery, webhook retries
 - [ ] Integration test with a sandbox/test Gmail inbox
+
+**Status note (2026-07-09):** A provider-agnostic `POST /api/webhooks/inbound-email` endpoint exists (`server/src/routes/webhooks.ts`) that accepts a normalized email payload and either creates a new ticket or threads a message onto an existing one (matching `In-Reply-To`/`References` against stored `Message-ID`s). No real provider is wired up yet — Gmail OAuth/Pub/Sub, attachment storage, and outbound replies are still unbuilt, and the Gmail-vs-SendGrid/Mailgun discrepancy between this doc and `tech-stack.md` is still unresolved. Whichever provider is chosen should call this same endpoint (or the logic behind it) rather than duplicating ticket-creation logic.
 
 ## Phase 5 — Knowledge Base
 

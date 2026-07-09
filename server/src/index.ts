@@ -5,6 +5,7 @@ import { auth } from './auth';
 import { config } from './config';
 import { prisma } from './db';
 import { usersRouter } from './routes/users';
+import { webhooksRouter } from './routes/webhooks';
 
 const app = express();
 const port = config.PORT;
@@ -28,6 +29,7 @@ app.get('/health/db', async (_req, res) => {
 });
 
 app.use('/api/users', usersRouter);
+app.use('/api/webhooks', webhooksRouter);
 
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);

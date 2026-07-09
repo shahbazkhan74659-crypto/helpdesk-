@@ -34,6 +34,8 @@ model User {
   // reset this to String - reapply the enum after regenerating.
   role Role @default(agent)
 
+  assignedTickets Ticket[]
+
   @@unique([email])
   @@map("user")
 }
@@ -98,4 +100,62 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+enum TicketStatus {
+  open
+  resolved
+  closed
+}
+
+enum TicketPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum TicketCategory {
+  general_question
+  technical_question
+  refund_request
+}
+
+enum MessageSender {
+  student
+  agent
+  ai
+}
+
+model Ticket {
+  id              Int             @id @default(autoincrement())
+  subject         String
+  status          TicketStatus    @default(open)
+  priority        TicketPriority  @default(medium)
+  category        String?
+  studentEmail    String
+  assignedAgentId String?
+  assignedAgent   User?           @relation(fields: [assignedAgentId], references: [id])
+  messages        TicketMessage[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@map("tickets")
+}
+
+// messageId/inReplyTo hold the inbound email's Message-ID/In-Reply-To
+// headers so a later reply can be matched back to this thread; both are
+// null for agent/AI-authored messages, which have no email headers.
+model TicketMessage {
+  id        String        @id @default(uuid())
+  ticketId  Int
+  ticket    Ticket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender    MessageSender
+  body      String
+  messageId String?       @unique
+  inReplyTo String?
+  sentAt    DateTime      @default(now())
+
+  @@index([ticketId])
+  @@map("ticket_messages")
 }

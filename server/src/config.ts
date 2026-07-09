@@ -27,6 +27,12 @@ const envSchema = z.object({
 
   // Anthropic Claude API - unset until Phase 6 (AI classification/summaries).
   ANTHROPIC_API_KEY: z.string().optional(),
+
+  // Inbound email webhook shared secret - checked against the `x-webhook-secret`
+  // header on POST /api/webhooks/inbound-email. Optional in dev/test so local
+  // curl/Postman testing works without it; required in production (enforced below)
+  // since without it the endpoint accepts unauthenticated ticket-creating requests.
+  INBOUND_EMAIL_WEBHOOK_SECRET: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -38,6 +44,10 @@ if (!parsed.success) {
 
 if (parsed.data.NODE_ENV === 'production' && !process.env.CLIENT_URL) {
   throw new Error('CLIENT_URL is required in production');
+}
+
+if (parsed.data.NODE_ENV === 'production' && !parsed.data.INBOUND_EMAIL_WEBHOOK_SECRET) {
+  throw new Error('INBOUND_EMAIL_WEBHOOK_SECRET is required in production');
 }
 
 export const config = parsed.data;
