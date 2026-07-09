@@ -2,7 +2,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, apiGet, apiPatch } from '../lib/api';
-import { MessageSender, TicketPriority, TicketStatus } from '../lib/ticket';
+import { MessageSender, TicketCategory, TicketPriority, TicketStatus } from '../lib/ticket';
 import { renderWithQuery } from '../test/renderWithQuery';
 import TicketDetailPage from './TicketDetailPage';
 
@@ -14,12 +14,25 @@ vi.mock('../lib/api', async (importOriginal) => {
 const mockedApiGet = vi.mocked(apiGet);
 const mockedApiPatch = vi.mocked(apiPatch);
 
-const AGENTS = [
+type Agent = { id: string; name: string; email: string };
+
+const AGENTS: Agent[] = [
   { id: 'agent-1', name: 'Jane Agent', email: 'jane@example.edu' },
   { id: 'agent-2', name: 'Sam Agent', email: 'sam@example.edu' },
 ];
 
-const BASE_TICKET = {
+const BASE_TICKET: {
+  id: number;
+  subject: string;
+  status: TicketStatus;
+  priority: TicketPriority;
+  category: TicketCategory | null;
+  studentEmail: string;
+  createdAt: string;
+  updatedAt: string;
+  assignedAgent: Agent | null;
+  messages: { id: string; sender: MessageSender; body: string; sentAt: string }[];
+} = {
   id: 42,
   subject: 'Printer jammed again',
   status: TicketStatus.open,
@@ -69,7 +82,7 @@ describe('TicketDetailPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Printer jammed again' })).toBeInTheDocument();
     expect(screen.getByText(/student@example\.edu/)).toBeInTheDocument();
-    expect(screen.getByText('Assigned:')).toBeInTheDocument();
+    expect(screen.getByText('Assigned')).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: /assigned agent/i })).toHaveTextContent('Unassigned');
     expect(screen.getByText('Updated at:')).toBeInTheDocument();
     expect(screen.getByText('open')).toBeInTheDocument();
@@ -136,6 +149,61 @@ describe('TicketDetailPage', () => {
     await user.click(await screen.findByRole('option', { name: 'Jane Agent' }));
 
     expect(await screen.findByText('Failed to assign. Please try again.')).toBeInTheDocument();
+  });
+
+  it('updates the status when a new one is selected', async () => {
+    const user = userEvent.setup();
+    mockTicketAndAgents(BASE_TICKET);
+    mockedApiPatch.mockResolvedValue({ ...BASE_TICKET, status: TicketStatus.resolved });
+
+    renderTicketDetailPage();
+
+    await user.click(await screen.findByRole('combobox', { name: /ticket status/i }));
+    await user.click(await screen.findByRole('option', { name: /^resolved$/i }));
+
+    expect(mockedApiPatch).toHaveBeenCalledWith('/api/tickets/42/status', { status: 'resolved' });
+    expect(await screen.findByRole('combobox', { name: /ticket status/i })).toHaveTextContent('resolved');
+  });
+
+  it('updates the category when a new one is selected', async () => {
+    const user = userEvent.setup();
+    mockTicketAndAgents(BASE_TICKET);
+    mockedApiPatch.mockResolvedValue({ ...BASE_TICKET, category: TicketCategory.refund_request });
+
+    renderTicketDetailPage();
+
+    await user.click(await screen.findByRole('combobox', { name: /ticket category/i }));
+    await user.click(await screen.findByRole('option', { name: /refund request/i }));
+
+    expect(mockedApiPatch).toHaveBeenCalledWith('/api/tickets/42/category', { category: 'refund_request' });
+    expect(await screen.findByRole('combobox', { name: /ticket category/i })).toHaveTextContent('refund request');
+  });
+
+  it('clears the category when No category is selected', async () => {
+    const user = userEvent.setup();
+    mockTicketAndAgents({ ...BASE_TICKET, category: TicketCategory.technical_question });
+    mockedApiPatch.mockResolvedValue({ ...BASE_TICKET, category: null });
+
+    renderTicketDetailPage();
+
+    await user.click(await screen.findByRole('combobox', { name: /ticket category/i }));
+    await user.click(await screen.findByRole('option', { name: /^no category$/i }));
+
+    expect(mockedApiPatch).toHaveBeenCalledWith('/api/tickets/42/category', { category: null });
+    expect(await screen.findByRole('combobox', { name: /ticket category/i })).toHaveTextContent('No category');
+  });
+
+  it('shows an error message when a status update fails', async () => {
+    const user = userEvent.setup();
+    mockTicketAndAgents(BASE_TICKET);
+    mockedApiPatch.mockRejectedValue(new Error('network error'));
+
+    renderTicketDetailPage();
+
+    await user.click(await screen.findByRole('combobox', { name: /ticket status/i }));
+    await user.click(await screen.findByRole('option', { name: /^resolved$/i }));
+
+    expect(await screen.findByText('Failed to update ticket. Please try again.')).toBeInTheDocument();
   });
 
   it('shows a not-found message on a 404', async () => {

@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Don't ever commit without consulting me, or until i told you.
 
+## Testing workflow
+
+Don't run tests after every single code edit — that's wasted time for incremental changes. Run tests only when it's actually necessary, e.g. once a change/feature is complete, dont run test when we design frontend only, like changing something's position, changing color, adding column, etc., before reporting it done. When tests do need to run, run only the client component tests (`npm run test` from `client/`) — not the server test suite or Playwright e2e, every time.
+
 ## Project
 
 HelpDesk is an AI-assisted ticket management system for a single educational institution: students email support, tickets get auto-classified/summarized/replied-to via Claude, and agents work exceptions in a queue. Full product scope is in `project-scope.md`, stack decisions in `tech-stack.md`, and phased build-out (with checkboxes for what's actually done) in `Implementation-plan.md` — check that file's checkboxes before assuming a feature (Gmail intake, AI classification, KB, dashboard, etc.) exists; most phases past Auth are not yet built.

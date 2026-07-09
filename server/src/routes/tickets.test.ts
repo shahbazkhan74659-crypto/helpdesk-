@@ -443,3 +443,122 @@ describe('PATCH /api/tickets/:id/assign', () => {
     expect(response.body).toEqual({ error: 'not_found' });
   });
 });
+
+describe('PATCH /api/tickets/:id/status', () => {
+  it('rejects unauthenticated requests', async () => {
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
+
+    const response = await request(app)
+      .patch(`/api/tickets/${ticket.id}/status`)
+      .send({ status: 'resolved' });
+
+    expect(response.status).toBe(401);
+  });
+
+  it('updates the status and bumps updatedAt', async () => {
+    const cookie = await createSignedInAgent();
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`, {
+      status: TicketStatus.open,
+    });
+
+    const response = await request(app)
+      .patch(`/api/tickets/${ticket.id}/status`)
+      .set('Cookie', cookie)
+      .send({ status: 'resolved' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('resolved');
+    expect(new Date(response.body.updatedAt).getTime()).toBeGreaterThan(new Date(ticket.updatedAt).getTime());
+  });
+
+  it('rejects an invalid status value', async () => {
+    const cookie = await createSignedInAgent();
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
+
+    const response = await request(app)
+      .patch(`/api/tickets/${ticket.id}/status`)
+      .set('Cookie', cookie)
+      .send({ status: 'archived' });
+
+    expect(response.status).toBe(422);
+    expect(response.body).toEqual({ error: 'invalid_request' });
+  });
+
+  it('returns 404 for a ticket that does not exist', async () => {
+    const cookie = await createSignedInAgent();
+
+    const response = await request(app)
+      .patch('/api/tickets/999999999/status')
+      .set('Cookie', cookie)
+      .send({ status: 'resolved' });
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'not_found' });
+  });
+});
+
+describe('PATCH /api/tickets/:id/category', () => {
+  it('rejects unauthenticated requests', async () => {
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
+
+    const response = await request(app)
+      .patch(`/api/tickets/${ticket.id}/category`)
+      .send({ category: 'refund_request' });
+
+    expect(response.status).toBe(401);
+  });
+
+  it('updates the category and bumps updatedAt', async () => {
+    const cookie = await createSignedInAgent();
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
+
+    const response = await request(app)
+      .patch(`/api/tickets/${ticket.id}/category`)
+      .set('Cookie', cookie)
+      .send({ category: 'refund_request' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.category).toBe('refund_request');
+    expect(new Date(response.body.updatedAt).getTime()).toBeGreaterThan(new Date(ticket.updatedAt).getTime());
+  });
+
+  it('clears the category when null is sent', async () => {
+    const cookie = await createSignedInAgent();
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`, {
+      category: TicketCategory.technical_question,
+    });
+
+    const response = await request(app)
+      .patch(`/api/tickets/${ticket.id}/category`)
+      .set('Cookie', cookie)
+      .send({ category: null });
+
+    expect(response.status).toBe(200);
+    expect(response.body.category).toBeNull();
+  });
+
+  it('rejects an invalid category value', async () => {
+    const cookie = await createSignedInAgent();
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
+
+    const response = await request(app)
+      .patch(`/api/tickets/${ticket.id}/category`)
+      .set('Cookie', cookie)
+      .send({ category: 'not_a_category' });
+
+    expect(response.status).toBe(422);
+    expect(response.body).toEqual({ error: 'invalid_request' });
+  });
+
+  it('returns 404 for a ticket that does not exist', async () => {
+    const cookie = await createSignedInAgent();
+
+    const response = await request(app)
+      .patch('/api/tickets/999999999/category')
+      .set('Cookie', cookie)
+      .send({ category: null });
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'not_found' });
+  });
+});

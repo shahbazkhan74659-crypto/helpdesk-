@@ -5,11 +5,14 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { priorityBadgeVariant, statusBadgeClassName } from '../components/TicketsTable';
+import { priorityBadgeVariant } from '../components/TicketsTable';
 import { apiGet, apiPatch, ApiError } from '../lib/api';
-import { MessageSender, type TicketCategory, type TicketPriority, type TicketStatus } from '../lib/ticket';
+import { MessageSender, TicketCategory, TicketStatus, type TicketPriority } from '../lib/ticket';
 
 const UNASSIGNED = 'unassigned';
+const NO_CATEGORY = 'none';
+const statusOptions = Object.values(TicketStatus);
+const categoryOptions = Object.values(TicketCategory);
 
 type TicketMessage = {
   id: string;
@@ -79,21 +82,39 @@ function TicketDetailPage() {
     },
   });
 
+  const statusMutation = useMutation({
+    mutationFn: (status: TicketStatus) => apiPatch<TicketDetail>(`/api/tickets/${id}/status`, { status }),
+    onSuccess: (updatedTicket) => {
+      queryClient.setQueryData(['ticket', id], updatedTicket);
+    },
+  });
+
+  const categoryMutation = useMutation({
+    mutationFn: (category: TicketCategory | null) => apiPatch<TicketDetail>(`/api/tickets/${id}/category`, { category }),
+    onSuccess: (updatedTicket) => {
+      queryClient.setQueryData(['ticket', id], updatedTicket);
+    },
+  });
+
   if (isPending) {
     return (
       <div className="flex flex-col gap-4">
         <BackLink />
-        <div className="flex items-start justify-between gap-6">
-          <div className="flex flex-1 flex-col gap-2">
-            <Skeleton className="h-7 w-96" />
-            <Skeleton className="h-4 w-64" />
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-[1fr_260px]">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-7 w-96" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+            <Skeleton className="h-40 w-full" />
           </div>
-          <div className="flex w-40 shrink-0 flex-col gap-2">
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-4 w-32" />
+          <div className="flex flex-col gap-4">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-8 w-full" />
           </div>
         </div>
-        <Skeleton className="h-40 w-full" />
       </div>
     );
   }
@@ -114,22 +135,55 @@ function TicketDetailPage() {
     <div className="flex flex-col gap-4">
       <BackLink />
 
-      <div className="flex items-start justify-between gap-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-lg font-semibold text-gray-900">{ticket.subject}</h1>
-          <p className="text-sm text-muted-foreground">
-            {ticket.studentEmail} · opened {new Date(ticket.createdAt).toLocaleString()}
-          </p>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[1fr_260px]">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-lg font-semibold text-gray-900">{ticket.subject}</h1>
+            <p className="text-sm text-muted-foreground">
+              {ticket.studentEmail} · opened {new Date(ticket.createdAt).toLocaleString()}
+            </p>
+            <p className="text-sm">
+              <span className="font-medium text-gray-900">Updated at:</span>{' '}
+              <span className="text-muted-foreground">{new Date(ticket.updatedAt).toLocaleString()}</span>
+            </p>
+          </div>
+
+          <Badge variant={priorityBadgeVariant[ticket.priority]} className="w-fit capitalize">
+            {ticket.priority}
+          </Badge>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Conversation</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              {ticket.messages.length === 0 && <p className="text-sm text-muted-foreground">No messages yet.</p>}
+              {ticket.messages.map((message) => (
+                <div key={message.id} className="rounded-lg border p-3">
+                  <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="font-medium">{senderLabel[message.sender]}</span>
+                    <span>{new Date(message.sentAt).toLocaleString()}</span>
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap">{message.body}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="flex w-48 shrink-0 flex-col gap-2 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-gray-900">Assigned:</span>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-gray-900">Assigned</span>
             <Select
               value={ticket.assignedAgent?.id ?? UNASSIGNED}
               onValueChange={(value) => assignMutation.mutate(!value || value === UNASSIGNED ? null : value)}
             >
-              <SelectTrigger size="sm" aria-label="Assigned agent" disabled={assignMutation.isPending}>
+              <SelectTrigger
+                size="sm"
+                aria-label="Assigned agent"
+                disabled={assignMutation.isPending}
+                className="w-full"
+              >
                 <SelectValue>{() => ticket.assignedAgent?.name ?? 'Unassigned'}</SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -141,46 +195,66 @@ function TicketDetailPage() {
                 ))}
               </SelectContent>
             </Select>
+            {assignMutation.isError && <p className="text-xs text-destructive">Failed to assign. Please try again.</p>}
           </div>
-          {assignMutation.isError && <p className="text-xs text-destructive">Failed to assign. Please try again.</p>}
-          <p>
-            <span className="font-medium text-gray-900">Updated at:</span>{' '}
-            <span className="text-muted-foreground">{new Date(ticket.updatedAt).toLocaleString()}</span>
-          </p>
+
+          <div className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-gray-900">Status</span>
+            <Select
+              value={ticket.status}
+              onValueChange={(value) => value && statusMutation.mutate(value as TicketStatus)}
+            >
+              <SelectTrigger size="sm" aria-label="Ticket status" disabled={statusMutation.isPending} className="w-full">
+                <SelectValue>{() => <span className="capitalize">{ticket.status}</span>}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {statusOptions.map((option) => (
+                  <SelectItem key={option} value={option} className="capitalize">
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-gray-900">Category</span>
+            <Select
+              value={ticket.category ?? NO_CATEGORY}
+              onValueChange={(value) =>
+                categoryMutation.mutate(!value || value === NO_CATEGORY ? null : (value as TicketCategory))
+              }
+            >
+              <SelectTrigger
+                size="sm"
+                aria-label="Ticket category"
+                disabled={categoryMutation.isPending}
+                className="w-full"
+              >
+                <SelectValue>
+                  {() => (
+                    <span className="capitalize">
+                      {ticket.category ? ticket.category.replace(/_/g, ' ') : 'No category'}
+                    </span>
+                  )}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_CATEGORY}>No category</SelectItem>
+                {categoryOptions.map((option) => (
+                  <SelectItem key={option} value={option} className="capitalize">
+                    {option.replace(/_/g, ' ')}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {(statusMutation.isError || categoryMutation.isError) && (
+            <p className="text-sm text-destructive">Failed to update ticket. Please try again.</p>
+          )}
         </div>
       </div>
-
-      <div className="flex flex-wrap gap-2">
-        <Badge variant="secondary" className={`capitalize ${statusBadgeClassName[ticket.status]}`}>
-          {ticket.status}
-        </Badge>
-        <Badge variant={priorityBadgeVariant[ticket.priority]} className="capitalize">
-          {ticket.priority}
-        </Badge>
-        {ticket.category && (
-          <Badge variant="outline" className="capitalize">
-            {ticket.category.replace(/_/g, ' ')}
-          </Badge>
-        )}
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Conversation</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {ticket.messages.length === 0 && <p className="text-sm text-muted-foreground">No messages yet.</p>}
-          {ticket.messages.map((message) => (
-            <div key={message.id} className="rounded-lg border p-3">
-              <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-                <span className="font-medium">{senderLabel[message.sender]}</span>
-                <span>{new Date(message.sentAt).toLocaleString()}</span>
-              </div>
-              <p className="text-sm whitespace-pre-wrap">{message.body}</p>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
     </div>
   );
 }
