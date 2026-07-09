@@ -132,7 +132,7 @@ model Ticket {
   subject         String
   status          TicketStatus    @default(open)
   priority        TicketPriority  @default(medium)
-  category        String?
+  category        TicketCategory?
   studentEmail    String
   assignedAgentId String?
   assignedAgent   User?           @relation(fields: [assignedAgentId], references: [id])
