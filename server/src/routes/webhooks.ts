@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
+import DOMPurify from 'isomorphic-dompurify';
 import { config } from '../config';
 import { prisma } from '../db';
 import { MessageSender } from '../generated/prisma/client';
@@ -8,7 +9,7 @@ import { MessageSender } from '../generated/prisma/client';
 export const webhooksRouter = Router();
 
 const inboundEmailSchema = z.object({
-  from: z.string().email(),
+  from: z.string().email().max(254),
   subject: z.string().max(998),
   body: z.string().max(100_000),
   messageId: z.string().min(1).max(998),
@@ -20,6 +21,13 @@ function secretsMatch(provided: string, expected: string): boolean {
   const providedBuf = Buffer.from(provided);
   const expectedBuf = Buffer.from(expected);
   return providedBuf.length === expectedBuf.length && crypto.timingSafeEqual(providedBuf, expectedBuf);
+}
+
+// Ticket subject/body are stored and rendered as plain text (no rich-text
+// feature exists), so strip all markup rather than allowing a "safe" subset -
+// this also protects any future feature that renders these fields as HTML.
+function sanitizePlainText(input: string): string {
+  return DOMPurify.sanitize(input, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
 }
 
 webhooksRouter.post('/inbound-email', async (req, res) => {
@@ -37,7 +45,9 @@ webhooksRouter.post('/inbound-email', async (req, res) => {
     return;
   }
 
-  const { from, subject, body, messageId, inReplyTo, references } = parsed.data;
+  const { from, messageId, inReplyTo, references } = parsed.data;
+  const subject = sanitizePlainText(parsed.data.subject);
+  const body = sanitizePlainText(parsed.data.body);
 
   // Provider redelivery of a Message-ID we've already stored - treat as a no-op
   // rather than hitting the unique constraint on TicketMessage.messageId.

@@ -3,6 +3,7 @@ import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { app } from '../app';
 import { config } from '../config';
+import { prisma } from '../db';
 
 const webhookHeaders = config.INBOUND_EMAIL_WEBHOOK_SECRET
   ? { 'x-webhook-secret': config.INBOUND_EMAIL_WEBHOOK_SECRET }
@@ -136,5 +137,27 @@ describe('POST /api/webhooks/inbound-email', () => {
 
     expect(response.status).toBe(422);
     expect(response.body).toEqual({ error: 'invalid_request' });
+  });
+
+  it('strips HTML/script markup from the subject and body before storing', async () => {
+    const response = await request(app)
+      .post('/api/webhooks/inbound-email')
+      .set(webhookHeaders)
+      .send({
+        from: uniqueEmail(),
+        subject: '<img src=x onerror=alert(1)>Broken login',
+        body: '<script>alert(1)</script>Please <b>help</b>, I cannot log in.',
+        messageId: uniqueMessageId(),
+      });
+
+    expect(response.status).toBe(201);
+
+    const ticket = await prisma.ticket.findUniqueOrThrow({
+      where: { id: response.body.ticketId },
+      include: { messages: true },
+    });
+
+    expect(ticket.subject).toBe('Broken login');
+    expect(ticket.messages[0].body).toBe('Please help, I cannot log in.');
   });
 });
