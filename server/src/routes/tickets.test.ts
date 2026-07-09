@@ -60,11 +60,11 @@ describe('GET /api/tickets', () => {
 
   it('defaults to sorting by createdAt descending', async () => {
     const cookie = await createSignedInAgent();
-    const studentEmail = `student-${crypto.randomUUID()}@example.com`;
-    const older = await createTicket('Older ticket', studentEmail);
-    const newer = await createTicket('Newer ticket', studentEmail);
+    const suffix = crypto.randomUUID();
+    const older = await createTicket(`Older ticket ${suffix}`, `student-${crypto.randomUUID()}@example.com`);
+    const newer = await createTicket(`Newer ticket ${suffix}`, `student-${crypto.randomUUID()}@example.com`);
 
-    const response = await request(app).get('/api/tickets').set('Cookie', cookie);
+    const response = await request(app).get('/api/tickets').query({ search: suffix }).set('Cookie', cookie);
 
     expect(response.status).toBe(200);
     const ids = response.body.tickets.map((t: { id: number }) => t.id);
@@ -79,7 +79,7 @@ describe('GET /api/tickets', () => {
 
     const response = await request(app)
       .get('/api/tickets')
-      .query({ sortBy: 'subject', sortDir: 'asc' })
+      .query({ sortBy: 'subject', sortDir: 'asc', search: suffix })
       .set('Cookie', cookie);
 
     expect(response.status).toBe(200);
@@ -200,6 +200,77 @@ describe('GET /api/tickets', () => {
     const cookie = await createSignedInAgent();
 
     const response = await request(app).get('/api/tickets').query({ status: 'archived' }).set('Cookie', cookie);
+
+    expect(response.status).toBe(422);
+    expect(response.body).toEqual({ error: 'invalid_request' });
+  });
+
+  it('defaults to 10 tickets per page and reports the total count', async () => {
+    const cookie = await createSignedInAgent();
+    const suffix = crypto.randomUUID();
+    for (let i = 0; i < 15; i++) {
+      await createTicket(`Paginated ${suffix} #${i}`, `student-${crypto.randomUUID()}@example.com`);
+    }
+
+    const response = await request(app).get('/api/tickets').query({ search: suffix }).set('Cookie', cookie);
+
+    expect(response.status).toBe(200);
+    expect(response.body.tickets).toHaveLength(10);
+    expect(response.body.total).toBe(15);
+    expect(response.body.page).toBe(1);
+    expect(response.body.pageSize).toBe(10);
+  });
+
+  it('returns the remaining tickets on the second page with no overlap', async () => {
+    const cookie = await createSignedInAgent();
+    const suffix = crypto.randomUUID();
+    for (let i = 0; i < 15; i++) {
+      await createTicket(`Paginated ${suffix} #${i}`, `student-${crypto.randomUUID()}@example.com`);
+    }
+
+    const firstPage = await request(app).get('/api/tickets').query({ search: suffix, page: 1 }).set('Cookie', cookie);
+    const secondPage = await request(app)
+      .get('/api/tickets')
+      .query({ search: suffix, page: 2 })
+      .set('Cookie', cookie);
+
+    expect(firstPage.body.tickets).toHaveLength(10);
+    expect(secondPage.body.tickets).toHaveLength(5);
+
+    const firstIds = firstPage.body.tickets.map((t: { id: number }) => t.id);
+    const secondIds = secondPage.body.tickets.map((t: { id: number }) => t.id);
+    expect(firstIds.filter((id: number) => secondIds.includes(id))).toHaveLength(0);
+  });
+
+  it('respects a custom pageSize', async () => {
+    const cookie = await createSignedInAgent();
+    const suffix = crypto.randomUUID();
+    for (let i = 0; i < 15; i++) {
+      await createTicket(`Paginated ${suffix} #${i}`, `student-${crypto.randomUUID()}@example.com`);
+    }
+
+    const response = await request(app)
+      .get('/api/tickets')
+      .query({ search: suffix, pageSize: 5 })
+      .set('Cookie', cookie);
+
+    expect(response.body.tickets).toHaveLength(5);
+    expect(response.body.total).toBe(15);
+  });
+
+  it('rejects an out-of-range pageSize', async () => {
+    const cookie = await createSignedInAgent();
+
+    const response = await request(app).get('/api/tickets').query({ pageSize: 101 }).set('Cookie', cookie);
+
+    expect(response.status).toBe(422);
+    expect(response.body).toEqual({ error: 'invalid_request' });
+  });
+
+  it('rejects a page number below 1', async () => {
+    const cookie = await createSignedInAgent();
+
+    const response = await request(app).get('/api/tickets').query({ page: 0 }).set('Cookie', cookie);
 
     expect(response.status).toBe(422);
     expect(response.body).toEqual({ error: 'invalid_request' });

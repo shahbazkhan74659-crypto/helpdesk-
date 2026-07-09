@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { SortingState } from '@tanstack/react-table';
 import TicketsTable, { type Ticket } from '../components/TicketsTable';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { apiGet } from '../lib/api';
@@ -10,6 +11,7 @@ import { TicketCategory, TicketPriority, TicketStatus } from '../lib/ticket';
 const DEFAULT_SORTING: SortingState = [{ id: 'createdAt', desc: true }];
 const ALL_FILTER = 'all';
 const SEARCH_DEBOUNCE_MS = 300;
+const PAGE_SIZE = 10;
 
 const statusOptions = Object.values(TicketStatus);
 const priorityOptions = Object.values(TicketPriority);
@@ -35,6 +37,7 @@ function TicketsPage() {
   const [category, setCategory] = useState<string>(ALL_FILTER);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     const timeout = setTimeout(() => setSearch(searchInput.trim()), SEARCH_DEBOUNCE_MS);
@@ -43,20 +46,34 @@ function TicketsPage() {
 
   const sort = sorting[0] ?? DEFAULT_SORTING[0];
 
-  const params = new URLSearchParams({ sortBy: sort.id, sortDir: sort.desc ? 'desc' : 'asc' });
+  // Reset to page 1 whenever the sort/filter criteria change, using the
+  // "adjust state during render" pattern instead of an effect so the reset
+  // is applied before this render commits rather than after, in an extra pass.
+  const filterKey = `${sort.id}|${sort.desc}|${status}|${priority}|${category}|${search}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey);
+    setPage(1);
+  }
+
+  const params = new URLSearchParams({
+    sortBy: sort.id,
+    sortDir: sort.desc ? 'desc' : 'asc',
+    page: String(page),
+    pageSize: String(PAGE_SIZE),
+  });
   if (status !== ALL_FILTER) params.set('status', status);
   if (priority !== ALL_FILTER) params.set('priority', priority);
   if (category !== ALL_FILTER) params.set('category', category);
   if (search) params.set('search', search);
 
-  const {
-    data: tickets,
-    isPending,
-    isError,
-  } = useQuery({
-    queryKey: ['tickets', sort.id, sort.desc, status, priority, category, search],
-    queryFn: () => apiGet<{ tickets: Ticket[] }>(`/api/tickets?${params}`).then((data) => data.tickets),
+  const { data, isPending, isError } = useQuery({
+    queryKey: ['tickets', sort.id, sort.desc, status, priority, category, search, page],
+    queryFn: () => apiGet<{ tickets: Ticket[]; total: number }>(`/api/tickets?${params}`),
   });
+
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="flex flex-col gap-4">
@@ -115,8 +132,41 @@ function TicketsPage() {
 
       {isError && <p className="text-sm text-destructive">Failed to load tickets. Please try again.</p>}
 
-      {(isPending || tickets) && (
-        <TicketsTable tickets={tickets} isPending={isPending} sorting={sorting} onSortingChange={setSorting} />
+      {(isPending || data) && (
+        <>
+          <TicketsTable tickets={data?.tickets} isPending={isPending} sorting={sorting} onSortingChange={setSorting} />
+
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>
+              {total === 0
+                ? 'No tickets'
+                : `Showing ${(page - 1) * PAGE_SIZE + 1}-${Math.min(page * PAGE_SIZE, total)} of ${total}`}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((current) => current - 1)}
+                disabled={page <= 1}
+              >
+                Previous
+              </Button>
+              <span>
+                Page {page} of {totalPages}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((current) => current + 1)}
+                disabled={page >= totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

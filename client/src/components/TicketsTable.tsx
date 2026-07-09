@@ -74,7 +74,18 @@ const columns = [
       </Badge>
     ),
   }),
-  columnHelper.accessor('category', { header: 'Category', cell: () => null }),
+  columnHelper.accessor('category', {
+    header: 'Category',
+    cell: (info) => {
+      const category = info.getValue();
+      if (!category) return null;
+      return (
+        <Badge variant="outline" className="capitalize">
+          {category.replace(/_/g, ' ')}
+        </Badge>
+      );
+    },
+  }),
   columnHelper.accessor('createdAt', {
     header: 'Created',
     cell: (info) => new Date(info.getValue()).toLocaleDateString(),

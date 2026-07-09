@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## GitHub
+
+Don't ever commit without consulting me, or until i told you.
+
 ## Project
 
 HelpDesk is an AI-assisted ticket management system for a single educational institution: students email support, tickets get auto-classified/summarized/replied-to via Claude, and agents work exceptions in a queue. Full product scope is in `project-scope.md`, stack decisions in `tech-stack.md`, and phased build-out (with checkboxes for what's actually done) in `Implementation-plan.md` — check that file's checkboxes before assuming a feature (Gmail intake, AI classification, KB, dashboard, etc.) exists; most phases past Auth are not yet built.

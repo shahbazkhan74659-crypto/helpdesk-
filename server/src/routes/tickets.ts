@@ -8,6 +8,9 @@ export const ticketsRouter = Router();
 
 const SORTABLE_FIELDS = ['subject', 'studentEmail', 'status', 'priority', 'category', 'createdAt'] as const;
 
+const DEFAULT_PAGE_SIZE = 10;
+const MAX_PAGE_SIZE = 100;
+
 const listTicketsQuerySchema = z.object({
   sortBy: z.enum(SORTABLE_FIELDS).default('createdAt'),
   sortDir: z.enum(['asc', 'desc']).default('desc'),
@@ -15,6 +18,8 @@ const listTicketsQuerySchema = z.object({
   priority: z.enum(Object.values(TicketPriority) as [TicketPriority, ...TicketPriority[]]).optional(),
   category: z.enum(Object.values(TicketCategory) as [TicketCategory, ...TicketCategory[]]).optional(),
   search: z.string().trim().min(1).max(200).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
 });
 
 ticketsRouter.get('/', requireRole(Role.admin, Role.agent), async (req, res) => {
@@ -24,7 +29,7 @@ ticketsRouter.get('/', requireRole(Role.admin, Role.agent), async (req, res) => 
     return;
   }
 
-  const { sortBy, sortDir, status, priority, category, search } = parsed.data;
+  const { sortBy, sortDir, status, priority, category, search, page, pageSize } = parsed.data;
 
   const where: Prisma.TicketWhereInput = {
     status,
@@ -38,6 +43,15 @@ ticketsRouter.get('/', requireRole(Role.admin, Role.agent), async (req, res) => 
     }),
   };
 
-  const tickets = await prisma.ticket.findMany({ where, orderBy: { [sortBy]: sortDir } });
-  res.json({ tickets });
+  const [tickets, total] = await Promise.all([
+    prisma.ticket.findMany({
+      where,
+      orderBy: { [sortBy]: sortDir },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.ticket.count({ where }),
+  ]);
+
+  res.json({ tickets, total, page, pageSize });
 });
