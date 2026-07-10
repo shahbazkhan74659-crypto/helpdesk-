@@ -37,6 +37,35 @@ async function createSignedInAgent(): Promise<string> {
   return cookie;
 }
 
+async function createSignedInAdmin(): Promise<string> {
+  const email = `admin-${crypto.randomUUID()}@example.com`;
+
+  const ctx = await auth.$context;
+  const hash = await ctx.password.hash(AGENT_PASSWORD);
+  const user = await ctx.internalAdapter.createUser({
+    email,
+    name: 'Test Admin',
+    emailVerified: true,
+    role: Role.admin,
+  });
+  await ctx.internalAdapter.linkAccount({
+    userId: user.id,
+    providerId: 'credential',
+    accountId: user.id,
+    password: hash,
+  });
+
+  const signInResponse = await request(app)
+    .post('/api/auth/sign-in/email')
+    .send({ email, password: AGENT_PASSWORD });
+
+  const cookie = signInResponse.headers['set-cookie'];
+  if (!cookie) {
+    throw new Error('sign-in did not return a session cookie');
+  }
+  return cookie;
+}
+
 async function createAgent(name = 'Assignable Agent') {
   const ctx = await auth.$context;
   const hash = await ctx.password.hash(AGENT_PASSWORD);
@@ -589,6 +618,20 @@ describe('POST /api/tickets/:id/messages', () => {
     expect(reply.body).toBe('Thanks for reaching out.');
     expect(reply.sender).toBe('agent');
     expect(new Date(response.body.updatedAt).getTime()).toBeGreaterThan(new Date(ticket.updatedAt).getTime());
+  });
+
+  it('records the message sender as admin when an admin replies', async () => {
+    const cookie = await createSignedInAdmin();
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
+
+    const response = await request(app)
+      .post(`/api/tickets/${ticket.id}/messages`)
+      .set('Cookie', cookie)
+      .send({ body: 'Thanks for reaching out.' });
+
+    expect(response.status).toBe(201);
+    const reply = response.body.messages[1];
+    expect(reply.sender).toBe('admin');
   });
 
   it('rejects an empty body', async () => {

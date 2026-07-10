@@ -30,7 +30,8 @@ export type TicketCategory = 'general_question' | 'technical_question' | 'refund
 export const MessageSender = {
   student: 'student',
   agent: 'agent',
+  admin: 'admin',
   ai: 'ai',
 } as const;
 
-export type MessageSender = 'student' | 'agent' | 'ai';
+export type MessageSender = 'student' | 'agent' | 'admin' | 'ai';

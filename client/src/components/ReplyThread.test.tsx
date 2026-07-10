@@ -45,4 +45,17 @@ describe('ReplyThread', () => {
     expect(screen.getByText('AI')).toBeInTheDocument();
     expect(screen.getByText('Auto-generated reply.')).toBeInTheDocument();
   });
+
+  it('shows the Admin sender label for admin-authored replies', () => {
+    render(
+      <ReplyThread
+        replies={[
+          { id: 'm4', sender: MessageSender.admin, body: 'Approved the refund.', sentAt: '2026-07-10T09:20:00.000Z' },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('Admin')).toBeInTheDocument();
+    expect(screen.getByText('Approved the refund.')).toBeInTheDocument();
+  });
 });

@@ -124,6 +124,7 @@ enum TicketCategory {
 enum MessageSender {
   student
   agent
+  admin
   ai
 }
 

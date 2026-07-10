@@ -5,6 +5,7 @@ import type { TicketMessage } from '../pages/TicketDetailPage';
 const senderLabel: Record<MessageSender, string> = {
   [MessageSender.student]: 'Student',
   [MessageSender.agent]: 'Agent',
+  [MessageSender.admin]: 'Admin',
   [MessageSender.ai]: 'AI',
 };
 
