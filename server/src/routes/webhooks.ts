@@ -5,22 +5,27 @@ import DOMPurify from 'isomorphic-dompurify';
 import { config } from '../config';
 import { prisma } from '../db';
 import { MessageSender } from '../generated/prisma/client';
-import { boss, CLASSIFY_TICKET_QUEUE, startBoss } from '../queue/boss';
+import type { AutoResolveTicketJob } from '../queue/autoResolveTicketWorker';
+import { AUTO_RESOLVE_TICKET_QUEUE, boss, CLASSIFY_TICKET_QUEUE, startBoss } from '../queue/boss';
 import type { ClassifyTicketJob } from '../queue/classifyTicketWorker';
 
 export const webhooksRouter = Router();
 
-// Enqueues the job and returns once it's durably stored in Postgres - the
-// actual OpenAI call happens later in the classifyTicketWorker, decoupled
-// from this request so a slow/failing model call never blocks or fails the
-// email provider's delivery. pg-boss also retries failed jobs automatically.
-async function enqueueClassifyTicket(ticketId: number, subject: string, body: string): Promise<void> {
+// Enqueues the jobs and returns once they're durably stored in Postgres - the
+// actual OpenAI calls happen later in classifyTicketWorker/autoResolveTicketWorker,
+// decoupled from this request so a slow/failing model call never blocks or fails
+// the email provider's delivery. pg-boss also retries failed jobs automatically.
+async function enqueueNewTicketJobs(ticketId: number, subject: string, body: string): Promise<void> {
   try {
     await startBoss();
-    const job: ClassifyTicketJob = { ticketId, subject, body };
-    await boss.send(CLASSIFY_TICKET_QUEUE, job);
+    const classifyJob: ClassifyTicketJob = { ticketId, subject, body };
+    const autoResolveJob: AutoResolveTicketJob = { ticketId, subject, body };
+    await Promise.all([
+      boss.send(CLASSIFY_TICKET_QUEUE, classifyJob),
+      boss.send(AUTO_RESOLVE_TICKET_QUEUE, autoResolveJob),
+    ]);
   } catch (error) {
-    console.error('Failed to enqueue ticket classification:', error);
+    console.error('Failed to enqueue new-ticket jobs:', error);
   }
 }
 
@@ -115,7 +120,7 @@ webhooksRouter.post('/inbound-email', async (req, res) => {
     },
   });
 
-  await enqueueClassifyTicket(ticket.id, subject, body);
+  await enqueueNewTicketJobs(ticket.id, subject, body);
 
   res.status(201).json({ ticketId: ticket.id, isNewTicket: true });
 });

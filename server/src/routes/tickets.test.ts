@@ -87,7 +87,12 @@ async function createAgent(name = 'Assignable Agent') {
 async function createTicket(
   subject: string,
   studentEmail: string,
-  overrides: { status?: TicketStatus; priority?: TicketPriority; category?: TicketCategory } = {},
+  overrides: {
+    status?: TicketStatus;
+    priority?: TicketPriority;
+    category?: TicketCategory;
+    resolvedByAi?: boolean;
+  } = {},
 ) {
   return prisma.ticket.create({
     data: {
@@ -213,6 +218,22 @@ describe('GET /api/tickets', () => {
     const ids = response.body.tickets.map((t: { id: number }) => t.id);
     expect(ids).toContain(refund.id);
     expect(ids).not.toContain(technical.id);
+  });
+
+  it('excludes tickets resolved by AI', async () => {
+    const cookie = await createSignedInAgent();
+    const suffix = crypto.randomUUID();
+    const aiResolved = await createTicket(`AI resolved ${suffix}`, `student-${crypto.randomUUID()}@example.com`, {
+      resolvedByAi: true,
+    });
+    const needsAgent = await createTicket(`Needs agent ${suffix}`, `student-${crypto.randomUUID()}@example.com`);
+
+    const response = await request(app).get('/api/tickets').query({ search: suffix }).set('Cookie', cookie);
+
+    expect(response.status).toBe(200);
+    const ids = response.body.tickets.map((t: { id: number }) => t.id);
+    expect(ids).not.toContain(aiResolved.id);
+    expect(ids).toContain(needsAgent.id);
   });
 
   it('searches by subject, case-insensitively', async () => {

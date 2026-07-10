@@ -2,6 +2,7 @@ import { PgBoss } from 'pg-boss';
 import { config } from '../config';
 
 export const CLASSIFY_TICKET_QUEUE = 'classify-ticket';
+export const AUTO_RESOLVE_TICKET_QUEUE = 'auto-resolve-ticket';
 
 export const boss = new PgBoss(config.DATABASE_URL);
 
@@ -16,6 +17,7 @@ export function startBoss(): Promise<PgBoss> {
   if (!startPromise) {
     startPromise = boss.start().then(async (started) => {
       await boss.createQueue(CLASSIFY_TICKET_QUEUE);
+      await boss.createQueue(AUTO_RESOLVE_TICKET_QUEUE);
       return started;
     });
   }

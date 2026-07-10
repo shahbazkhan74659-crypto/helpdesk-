@@ -37,6 +37,9 @@ ticketsRouter.get('/', requireRole(Role.admin, Role.agent), async (req, res) => 
     status,
     priority,
     category,
+    // AI-resolved tickets never need agent attention, so keep them off the
+    // main queue - they're still reachable directly via GET /:id.
+    resolvedByAi: false,
     ...(search && {
       OR: [
         { subject: { contains: search, mode: 'insensitive' } },
