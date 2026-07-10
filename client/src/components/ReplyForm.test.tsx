@@ -69,4 +69,36 @@ describe('ReplyForm', () => {
     expect(await screen.findByText('Failed to send reply. Please try again.')).toBeInTheDocument();
     expect(onReplySent).not.toHaveBeenCalled();
   });
+
+  it('disables the Polish button when the reply is empty', () => {
+    renderReplyForm();
+
+    expect(screen.getByRole('button', { name: 'Polish' })).toBeDisabled();
+  });
+
+  it('polishes the draft reply and fills the textarea with the improved text', async () => {
+    mockedApiPost.mockResolvedValue({ body: 'Polished: try restarting the printer.' });
+    const user = userEvent.setup();
+    renderReplyForm();
+
+    const textarea = screen.getByLabelText('Reply');
+    await user.type(textarea, 'try restarting printer');
+    await user.click(screen.getByRole('button', { name: 'Polish' }));
+
+    expect(mockedApiPost).toHaveBeenCalledWith('/api/tickets/42/polish-reply', {
+      body: 'try restarting printer',
+    });
+    await waitFor(() => expect(textarea).toHaveValue('Polished: try restarting the printer.'));
+  });
+
+  it('shows an error message when polishing fails', async () => {
+    mockedApiPost.mockRejectedValue(new Error('network error'));
+    const user = userEvent.setup();
+    renderReplyForm();
+
+    await user.type(screen.getByLabelText('Reply'), 'try restarting printer');
+    await user.click(screen.getByRole('button', { name: 'Polish' }));
+
+    expect(await screen.findByText('Failed to polish reply. Please try again.')).toBeInTheDocument();
+  });
 });

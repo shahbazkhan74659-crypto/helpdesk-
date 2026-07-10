@@ -28,6 +28,9 @@ const envSchema = z.object({
   // Anthropic Claude API - unset until Phase 6 (AI classification/summaries).
   ANTHROPIC_API_KEY: z.string().optional(),
 
+  // OpenAI API - used by the reply "Polish" button (gpt-5-nano via Vercel AI SDK).
+  OPENAI_API_KEY: z.string().optional(),
+
   // Inbound email webhook shared secret - checked against the `x-webhook-secret`
   // header on POST /api/webhooks/inbound-email. Optional in dev/test so local
   // curl/Postman testing works without it; required in production (enforced below)

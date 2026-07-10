@@ -1,3 +1,5 @@
+import { openai } from '@ai-sdk/openai';
+import { generateText } from 'ai';
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db';
@@ -237,4 +239,50 @@ ticketsRouter.post('/:id/messages', requireRole(Role.admin, Role.agent), async (
   });
 
   res.status(201).json(ticket);
+});
+
+const polishReplySchema = z.object({
+  body: z.string().trim().min(1),
+});
+
+ticketsRouter.post('/:id/polish-reply', requireRole(Role.admin, Role.agent), async (req, res) => {
+  const paramsParsed = ticketIdParamsSchema.safeParse(req.params);
+  if (!paramsParsed.success) {
+    res.status(422).json({ error: 'invalid_request' });
+    return;
+  }
+
+  const bodyParsed = polishReplySchema.safeParse(req.body);
+  if (!bodyParsed.success) {
+    res.status(422).json({ error: 'invalid_request' });
+    return;
+  }
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: paramsParsed.data.id },
+    include: { messages: { orderBy: { sentAt: 'asc' }, take: 1 } },
+  });
+
+  if (!ticket) {
+    res.status(404).json({ error: 'not_found' });
+    return;
+  }
+
+  const originalMessage = ticket.messages[0]?.body ?? '';
+
+  try {
+    const { text } = await generateText({
+      model: openai('gpt-5-nano'),
+      system:
+        'You are an assistant helping a support agent polish a reply to a student support ticket. ' +
+        'Improve clarity, grammar, and tone while keeping the meaning, facts, and intent unchanged. ' +
+        'Keep the same language and roughly the same length. Return only the improved reply text, with no preamble or quotes.',
+      prompt: `Student's ticket subject: ${ticket.subject}\nStudent's original message: ${originalMessage}\n\nAgent's draft reply to polish:\n${bodyParsed.data.body}`,
+    });
+
+    res.json({ body: text.trim() });
+  } catch (error) {
+    console.error('Failed to polish reply:', error);
+    res.status(502).json({ error: 'polish_failed' });
+  }
 });

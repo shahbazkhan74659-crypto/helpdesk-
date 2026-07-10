@@ -23,11 +23,15 @@ function ReplyForm({ ticketId, onReplySent }: ReplyFormProps) {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<ReplyFormValues>({
     resolver: zodResolver(replySchema),
     defaultValues: { body: '' },
   });
+
+  const body = watch('body');
 
   const mutation = useMutation({
     mutationFn: (body: string) => apiPost<TicketDetailData>(`/api/tickets/${ticketId}/messages`, { body }),
@@ -37,11 +41,26 @@ function ReplyForm({ ticketId, onReplySent }: ReplyFormProps) {
     },
   });
 
+  const polishMutation = useMutation({
+    mutationFn: (body: string) => apiPost<{ body: string }>(`/api/tickets/${ticketId}/polish-reply`, { body }),
+    onSuccess: (result) => {
+      setValue('body', result.body, { shouldValidate: true });
+    },
+  });
+
   async function onSubmit(values: ReplyFormValues) {
     try {
       await mutation.mutateAsync(values.body);
     } catch {
       // surfaced via mutation.isError below
+    }
+  }
+
+  async function onPolish() {
+    try {
+      await polishMutation.mutateAsync(body);
+    } catch {
+      // surfaced via polishMutation.isError below
     }
   }
 
@@ -59,9 +78,23 @@ function ReplyForm({ ticketId, onReplySent }: ReplyFormProps) {
         />
         {errors.body && <p className="text-sm text-destructive">{errors.body.message}</p>}
         {mutation.isError && <p className="text-sm text-destructive">Failed to send reply. Please try again.</p>}
-        <Button type="submit" disabled={isSubmitting} className="w-fit">
-          {isSubmitting ? 'Sending...' : 'Send Reply'}
-        </Button>
+        {polishMutation.isError && (
+          <p className="text-sm text-destructive">Failed to polish reply. Please try again.</p>
+        )}
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onPolish}
+            disabled={!body?.trim() || polishMutation.isPending || isSubmitting}
+            className="w-fit"
+          >
+            {polishMutation.isPending ? 'Polishing...' : 'Polish'}
+          </Button>
+          <Button type="submit" disabled={isSubmitting} className="w-fit">
+            {isSubmitting ? 'Sending...' : 'Send Reply'}
+          </Button>
+        </div>
       </form>
     </div>
   );
