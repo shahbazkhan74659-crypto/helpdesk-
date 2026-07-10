@@ -1,38 +1,27 @@
 import crypto from 'node:crypto';
-import { openai } from '@ai-sdk/openai';
-import { generateText } from 'ai';
 import { Router } from 'express';
 import { z } from 'zod';
 import DOMPurify from 'isomorphic-dompurify';
 import { config } from '../config';
 import { prisma } from '../db';
-import { MessageSender, TicketCategory } from '../generated/prisma/client';
+import { MessageSender } from '../generated/prisma/client';
+import { boss, CLASSIFY_TICKET_QUEUE, startBoss } from '../queue/boss';
+import type { ClassifyTicketJob } from '../queue/classifyTicketWorker';
 
 export const webhooksRouter = Router();
 
-const CATEGORY_VALUES = Object.values(TicketCategory);
-
-// Fire-and-forget: this kicks off after the webhook has already responded, so a
-// slow or failing OpenAI call never blocks or fails the email provider's delivery.
-function classifyTicketCategory(ticketId: number, subject: string, body: string): void {
-  generateText({
-    model: openai('gpt-5-nano'),
-    system:
-      'You classify student support tickets into exactly one category. ' +
-      `Respond with only one of these exact words and nothing else: ${CATEGORY_VALUES.join(', ')}.`,
-    prompt: `Ticket subject: ${subject}\nTicket message: ${body}`,
-  })
-    .then(({ text }) => {
-      const category = CATEGORY_VALUES.find((value) => value === text.trim());
-      if (!category) {
-        console.error(`Ticket classification returned unexpected value: "${text}"`);
-        return;
-      }
-      return prisma.ticket.update({ where: { id: ticketId }, data: { category } });
-    })
-    .catch((error: unknown) => {
-      console.error('Failed to classify ticket:', error);
-    });
+// Enqueues the job and returns once it's durably stored in Postgres - the
+// actual OpenAI call happens later in the classifyTicketWorker, decoupled
+// from this request so a slow/failing model call never blocks or fails the
+// email provider's delivery. pg-boss also retries failed jobs automatically.
+async function enqueueClassifyTicket(ticketId: number, subject: string, body: string): Promise<void> {
+  try {
+    await startBoss();
+    const job: ClassifyTicketJob = { ticketId, subject, body };
+    await boss.send(CLASSIFY_TICKET_QUEUE, job);
+  } catch (error) {
+    console.error('Failed to enqueue ticket classification:', error);
+  }
 }
 
 const inboundEmailSchema = z.object({
@@ -126,7 +115,7 @@ webhooksRouter.post('/inbound-email', async (req, res) => {
     },
   });
 
-  classifyTicketCategory(ticket.id, subject, body);
+  await enqueueClassifyTicket(ticket.id, subject, body);
 
   res.status(201).json({ ticketId: ticket.id, isNewTicket: true });
 });
