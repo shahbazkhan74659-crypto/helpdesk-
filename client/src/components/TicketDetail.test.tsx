@@ -1,11 +1,13 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { renderWithQuery } from '../test/renderWithQuery';
 import TicketDetail from './TicketDetail';
 
 describe('TicketDetail', () => {
   it('renders the subject, created/updated dates, sender, and message body', () => {
-    render(
+    renderWithQuery(
       <TicketDetail
+        ticketId={42}
         subject="Printer jammed again"
         studentEmail="student@example.edu"
         createdAt="2026-07-10T09:00:00.000Z"
@@ -27,8 +29,9 @@ describe('TicketDetail', () => {
   });
 
   it('shows a fallback and no sender line when there is no message', () => {
-    render(
+    renderWithQuery(
       <TicketDetail
+        ticketId={42}
         subject="Printer jammed again"
         studentEmail="student@example.edu"
         createdAt="2026-07-10T09:00:00.000Z"
@@ -39,5 +42,20 @@ describe('TicketDetail', () => {
 
     expect(screen.getByText('No message yet.')).toBeInTheDocument();
     expect(screen.queryByText(/^From /)).not.toBeInTheDocument();
+  });
+
+  it('renders a Summarize button below the message', () => {
+    renderWithQuery(
+      <TicketDetail
+        ticketId={42}
+        subject="Printer jammed again"
+        studentEmail="student@example.edu"
+        createdAt="2026-07-10T09:00:00.000Z"
+        updatedAt="2026-07-10T09:05:00.000Z"
+        message="It is jammed."
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /summarize/i })).toBeInTheDocument();
   });
 });

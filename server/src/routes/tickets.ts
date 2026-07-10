@@ -286,3 +286,48 @@ ticketsRouter.post('/:id/polish-reply', requireRole(Role.admin, Role.agent), asy
     res.status(502).json({ error: 'polish_failed' });
   }
 });
+
+const summarySenderLabel: Record<MessageSender, string> = {
+  [MessageSender.student]: 'Student',
+  [MessageSender.agent]: 'Agent',
+  [MessageSender.admin]: 'Admin',
+  [MessageSender.ai]: 'AI',
+};
+
+ticketsRouter.post('/:id/summarize', requireRole(Role.admin, Role.agent), async (req, res) => {
+  const paramsParsed = ticketIdParamsSchema.safeParse(req.params);
+  if (!paramsParsed.success) {
+    res.status(422).json({ error: 'invalid_request' });
+    return;
+  }
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: paramsParsed.data.id },
+    include: { messages: { orderBy: { sentAt: 'asc' } } },
+  });
+
+  if (!ticket) {
+    res.status(404).json({ error: 'not_found' });
+    return;
+  }
+
+  const conversation = ticket.messages
+    .map((message) => `${summarySenderLabel[message.sender]}: ${message.body}`)
+    .join('\n\n');
+
+  try {
+    const { text } = await generateText({
+      model: openai('gpt-5-nano'),
+      system:
+        'You are an assistant helping a support agent quickly understand a student support ticket. ' +
+        'Summarize the issue and the conversation so far in 2-4 concise sentences: what the student needs, ' +
+        "what's been discussed or tried, and the current status. Return only the summary text, with no preamble or quotes.",
+      prompt: `Ticket subject: ${ticket.subject}\nStudent: ${ticket.studentEmail}\n\nConversation:\n${conversation}`,
+    });
+
+    res.json({ summary: text.trim() });
+  } catch (error) {
+    console.error('Failed to summarize ticket:', error);
+    res.status(502).json({ error: 'summarize_failed' });
+  }
+});

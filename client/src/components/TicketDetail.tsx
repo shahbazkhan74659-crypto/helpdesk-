@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import TicketSummary from './TicketSummary';
 
 type TicketDetailProps = {
+  ticketId: number;
   subject: string;
   studentEmail: string;
   createdAt: string;
@@ -8,7 +10,7 @@ type TicketDetailProps = {
   message: string | null;
 };
 
-function TicketDetail({ subject, studentEmail, createdAt, updatedAt, message }: TicketDetailProps) {
+function TicketDetail({ ticketId, subject, studentEmail, createdAt, updatedAt, message }: TicketDetailProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
@@ -32,6 +34,8 @@ function TicketDetail({ subject, studentEmail, createdAt, updatedAt, message }: 
           )}
         </CardContent>
       </Card>
+
+      <TicketSummary ticketId={ticketId} />
     </div>
   );
 }

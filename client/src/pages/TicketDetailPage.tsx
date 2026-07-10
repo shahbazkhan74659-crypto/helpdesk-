@@ -95,6 +95,7 @@ function TicketDetailPage() {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-[1fr_260px]">
         <div className="flex flex-col gap-4">
           <TicketDetail
+            ticketId={ticket.id}
             subject={ticket.subject}
             studentEmail={ticket.studentEmail}
             createdAt={ticket.createdAt}
