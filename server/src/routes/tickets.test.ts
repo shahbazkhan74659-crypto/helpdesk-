@@ -5,6 +5,7 @@ import { app } from '../app';
 import { auth } from '../auth';
 import { prisma } from '../db';
 import { MessageSender, Role, TicketCategory, TicketPriority, TicketStatus } from '../generated/prisma/client';
+import { computeResolutionSplit } from './tickets';
 
 const AGENT_PASSWORD = 'password1234';
 
@@ -92,6 +93,8 @@ async function createTicket(
     priority?: TicketPriority;
     category?: TicketCategory;
     resolvedByAi?: boolean;
+    createdAt?: Date;
+    resolvedAt?: Date;
   } = {},
 ) {
   return prisma.ticket.create({
@@ -345,6 +348,147 @@ describe('GET /api/tickets', () => {
   });
 });
 
+describe('computeResolutionSplit', () => {
+  it('returns null percentages when there are no resolved tickets', () => {
+    expect(computeResolutionSplit(0, 0)).toEqual({
+      resolvedCount: 0,
+      aiResolvedPercent: null,
+      agentResolvedPercent: null,
+    });
+  });
+
+  it('splits and rounds percentages that sum to 100', () => {
+    expect(computeResolutionSplit(3, 7)).toEqual({
+      resolvedCount: 10,
+      aiResolvedPercent: 30,
+      agentResolvedPercent: 70,
+    });
+  });
+});
+
+describe('GET /api/tickets/stats', () => {
+  it('rejects unauthenticated requests', async () => {
+    const response = await request(app).get('/api/tickets/stats');
+    expect(response.status).toBe(401);
+  });
+
+  it('excludes closed tickets from the resolved split but includes them in the total', async () => {
+    const cookie = await createSignedInAgent();
+    const baseline = await request(app).get('/api/tickets/stats').set('Cookie', cookie);
+
+    await createTicket(`AI resolved ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`, {
+      status: TicketStatus.resolved,
+      resolvedByAi: true,
+    });
+    await createTicket(`Closed ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`, {
+      status: TicketStatus.closed,
+    });
+
+    const response = await request(app).get('/api/tickets/stats').set('Cookie', cookie);
+
+    expect(response.status).toBe(200);
+    expect(response.body.totalTickets).toBe(baseline.body.totalTickets + 2);
+    expect(response.body.aiResolvedCount).toBe(baseline.body.aiResolvedCount + 1);
+    expect(response.body.agentResolvedCount).toBe(baseline.body.agentResolvedCount);
+  });
+
+  it('splits AI vs agent percentages over resolved tickets only, summing to 100', async () => {
+    const cookie = await createSignedInAgent();
+    const baseline = await request(app).get('/api/tickets/stats').set('Cookie', cookie);
+
+    for (let i = 0; i < 3; i++) {
+      await createTicket(`AI ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`, {
+        status: TicketStatus.resolved,
+        resolvedByAi: true,
+      });
+    }
+    await createTicket(`Agent ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`, {
+      status: TicketStatus.resolved,
+      resolvedByAi: false,
+    });
+    await createTicket(`Closed ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`, {
+      status: TicketStatus.closed,
+    });
+    await createTicket(`Open ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
+
+    const response = await request(app).get('/api/tickets/stats').set('Cookie', cookie);
+
+    const expectedAi = baseline.body.aiResolvedCount + 3;
+    const expectedAgent = baseline.body.agentResolvedCount + 1;
+    const expected = computeResolutionSplit(expectedAi, expectedAgent);
+
+    expect(response.body.aiResolvedCount).toBe(expectedAi);
+    expect(response.body.agentResolvedCount).toBe(expectedAgent);
+    expect(response.body.aiResolvedPercent).toBe(expected.aiResolvedPercent);
+    expect(response.body.agentResolvedPercent).toBe(expected.agentResolvedPercent);
+    expect(response.body.aiResolvedPercent + response.body.agentResolvedPercent).toBe(100);
+  });
+
+  it('computes average resolution time from resolvedAt, ignoring tickets without it or with status closed', async () => {
+    const cookie = await createSignedInAgent();
+
+    const createdAt = new Date('2026-01-01T00:00:00.000Z');
+    const resolvedAt = new Date(createdAt.getTime() + 3600 * 1000);
+    await createTicket(`Resolved in 1h ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`, {
+      status: TicketStatus.resolved,
+      resolvedByAi: false,
+      createdAt,
+      resolvedAt,
+    });
+    // Closed ticket with a resolvedAt set should still be excluded from the average.
+    await createTicket(`Closed with resolvedAt ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`, {
+      status: TicketStatus.closed,
+      createdAt,
+      resolvedAt,
+    });
+
+    const response = await request(app).get('/api/tickets/stats').set('Cookie', cookie);
+
+    // Compare against an independently-run copy of the same aggregate query,
+    // rather than reverse-engineering an expected delta from a "baseline" call -
+    // resolvedCount (all resolved tickets) isn't the same denominator as
+    // "resolved tickets with a non-null resolvedAt", which is what this average
+    // is actually computed over, so a baseline/delta approach can't derive it.
+    const [{ avg_seconds: expectedAvg }] = await prisma.$queryRaw<{ avg_seconds: number }[]>`
+      SELECT AVG(EXTRACT(EPOCH FROM ("resolvedAt" - "createdAt")))::float8 AS avg_seconds
+      FROM "tickets"
+      WHERE "status" = 'resolved' AND "resolvedAt" IS NOT NULL
+    `;
+
+    expect(response.body.avgResolutionSeconds).toBeCloseTo(expectedAvg, 3);
+  });
+});
+
+describe('GET /api/tickets/stats/daily', () => {
+  it('rejects unauthenticated requests', async () => {
+    const response = await request(app).get('/api/tickets/stats/daily');
+    expect(response.status).toBe(401);
+  });
+
+  it('returns exactly 30 days, in order, ending today, zero-filled and reflecting a new ticket', async () => {
+    const cookie = await createSignedInAgent();
+
+    const response = await request(app).get('/api/tickets/stats/daily').set('Cookie', cookie);
+
+    expect(response.status).toBe(200);
+    expect(response.body.days).toHaveLength(30);
+
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const dates = response.body.days.map((d: { date: string }) => d.date);
+    expect(dates[dates.length - 1]).toBe(todayIso);
+    expect(dates).toEqual([...dates].sort());
+
+    const today = response.body.days.at(-1);
+    expect(typeof today.count).toBe('number');
+
+    await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
+
+    const afterResponse = await request(app).get('/api/tickets/stats/daily').set('Cookie', cookie);
+    const afterToday = afterResponse.body.days.at(-1);
+    expect(afterToday.count).toBe(today.count + 1);
+  });
+});
+
 describe('GET /api/tickets/:id', () => {
   it('rejects unauthenticated requests', async () => {
     const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`);
@@ -544,6 +688,40 @@ describe('PATCH /api/tickets/:id/status', () => {
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ error: 'not_found' });
+  });
+
+  it('sets resolvedAt and resolvedByAi:false when resolving a ticket', async () => {
+    const cookie = await createSignedInAgent();
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`, {
+      status: TicketStatus.open,
+    });
+
+    const response = await request(app)
+      .patch(`/api/tickets/${ticket.id}/status`)
+      .set('Cookie', cookie)
+      .send({ status: 'resolved' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.resolvedAt).not.toBeNull();
+    expect(response.body.resolvedByAi).toBe(false);
+  });
+
+  it('clears resolvedAt and resolvedByAi when reopening a resolved ticket', async () => {
+    const cookie = await createSignedInAgent();
+    const ticket = await createTicket(`Ticket ${crypto.randomUUID()}`, `student-${crypto.randomUUID()}@example.com`, {
+      status: TicketStatus.resolved,
+      resolvedByAi: true,
+      resolvedAt: new Date(),
+    });
+
+    const response = await request(app)
+      .patch(`/api/tickets/${ticket.id}/status`)
+      .set('Cookie', cookie)
+      .send({ status: 'open' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.resolvedAt).toBeNull();
+    expect(response.body.resolvedByAi).toBe(false);
   });
 });
 

@@ -1,9 +1,12 @@
 import crypto from 'node:crypto';
 import request from 'supertest';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { app } from '../app';
+import { auth } from '../auth';
 import { config } from '../config';
+import { AI_AGENT_EMAIL, AI_AGENT_NAME } from '../constants';
 import { prisma } from '../db';
+import { Role } from '../generated/prisma/client';
 
 const webhookHeaders = config.INBOUND_EMAIL_WEBHOOK_SECRET
   ? { 'x-webhook-secret': config.INBOUND_EMAIL_WEBHOOK_SECRET }
@@ -17,7 +20,28 @@ function uniqueEmail(): string {
   return `student-${crypto.randomUUID()}@example.com`;
 }
 
+async function ensureAiAgent(): Promise<{ id: string }> {
+  const existing = await prisma.user.findUnique({ where: { email: AI_AGENT_EMAIL }, select: { id: true } });
+  if (existing) {
+    return existing;
+  }
+  const ctx = await auth.$context;
+  const user = await ctx.internalAdapter.createUser({
+    email: AI_AGENT_EMAIL,
+    name: AI_AGENT_NAME,
+    emailVerified: true,
+    role: Role.agent,
+  });
+  return { id: user.id };
+}
+
 describe('POST /api/webhooks/inbound-email', () => {
+  let aiAgent: { id: string };
+
+  beforeAll(async () => {
+    aiAgent = await ensureAiAgent();
+  });
+
   it('creates a new ticket for a fresh message', async () => {
     const response = await request(app)
       .post('/api/webhooks/inbound-email')
@@ -31,6 +55,22 @@ describe('POST /api/webhooks/inbound-email', () => {
 
     expect(response.status).toBe(201);
     expect(response.body).toEqual({ ticketId: expect.any(Number), isNewTicket: true });
+  });
+
+  it('assigns a new ticket to the AI agent', async () => {
+    const response = await request(app)
+      .post('/api/webhooks/inbound-email')
+      .set(webhookHeaders)
+      .send({
+        from: uniqueEmail(),
+        subject: 'Forgot my password',
+        body: 'I cannot remember my password.',
+        messageId: uniqueMessageId(),
+      });
+
+    expect(response.status).toBe(201);
+    const ticket = await prisma.ticket.findUniqueOrThrow({ where: { id: response.body.ticketId } });
+    expect(ticket.assignedAgentId).toBe(aiAgent.id);
   });
 
   it('threads a reply from the same sender onto the existing ticket', async () => {

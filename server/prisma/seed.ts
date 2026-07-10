@@ -1,9 +1,10 @@
 import { auth } from '../src/auth';
 import { config } from '../src/config';
+import { AI_AGENT_EMAIL, AI_AGENT_NAME } from '../src/constants';
 import { prisma } from '../src/db';
 import { Role } from '../src/generated/prisma/client';
 
-async function main() {
+async function seedAdmin() {
   if (!config.ADMIN_EMAIL || !config.ADMIN_PASSWORD) {
     throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD must be set to seed the admin user');
   }
@@ -31,6 +32,29 @@ async function main() {
   });
 
   console.log(`Seeded admin user: ${email}`);
+}
+
+async function seedAiAgent() {
+  const existing = await prisma.user.findUnique({ where: { email: AI_AGENT_EMAIL } });
+  if (existing) {
+    console.log(`AI agent user already exists: ${AI_AGENT_EMAIL}`);
+    return;
+  }
+
+  const ctx = await auth.$context;
+  await ctx.internalAdapter.createUser({
+    email: AI_AGENT_EMAIL,
+    name: AI_AGENT_NAME,
+    emailVerified: true,
+    role: Role.agent,
+  });
+
+  console.log(`Seeded AI agent user: ${AI_AGENT_EMAIL}`);
+}
+
+async function main() {
+  await seedAdmin();
+  await seedAiAgent();
 }
 
 main()

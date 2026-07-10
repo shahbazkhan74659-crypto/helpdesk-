@@ -142,6 +142,10 @@ model Ticket {
   // base and closes it without a human agent - kept out of the main ticket
   // list (GET /api/tickets) since it never needs agent attention.
   resolvedByAi    Boolean         @default(false)
+  // Set/cleared whenever status transitions to/from "resolved" (see the AI
+  // worker and PATCH /:id/status) - unlike updatedAt, this isn't bumped by
+  // unrelated mutations, so it's safe to use for average resolution time.
+  resolvedAt      DateTime?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 

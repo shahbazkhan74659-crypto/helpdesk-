@@ -61,6 +61,72 @@ ticketsRouter.get('/', requireRole(Role.admin, Role.agent), async (req, res) => 
   res.json({ tickets, total, page, pageSize });
 });
 
+export function computeResolutionSplit(
+  aiResolvedCount: number,
+  agentResolvedCount: number,
+): { resolvedCount: number; aiResolvedPercent: number | null; agentResolvedPercent: number | null } {
+  const resolvedCount = aiResolvedCount + agentResolvedCount;
+  if (resolvedCount === 0) {
+    return { resolvedCount, aiResolvedPercent: null, agentResolvedPercent: null };
+  }
+  const aiResolvedPercent = Math.round((aiResolvedCount / resolvedCount) * 100);
+  return { resolvedCount, aiResolvedPercent, agentResolvedPercent: 100 - aiResolvedPercent };
+}
+
+// Registered before GET /:id so "/stats" isn't swallowed by the :id param route.
+ticketsRouter.get('/stats', requireRole(Role.admin, Role.agent), async (_req, res) => {
+  const [totalTickets, openTickets, aiResolvedCount, agentResolvedCount, avgRows] = await Promise.all([
+    prisma.ticket.count(),
+    prisma.ticket.count({ where: { status: TicketStatus.open } }),
+    prisma.ticket.count({ where: { status: TicketStatus.resolved, resolvedByAi: true } }),
+    prisma.ticket.count({ where: { status: TicketStatus.resolved, resolvedByAi: false } }),
+    // Cast to float8 - EXTRACT/AVG otherwise yield Postgres `numeric`, which
+    // node-postgres returns as a string to avoid precision loss.
+    prisma.$queryRaw<{ avg_seconds: number | null }[]>`
+      SELECT AVG(EXTRACT(EPOCH FROM ("resolvedAt" - "createdAt")))::float8 AS avg_seconds
+      FROM "tickets"
+      WHERE "status" = 'resolved' AND "resolvedAt" IS NOT NULL
+    `,
+  ]);
+
+  const { resolvedCount, aiResolvedPercent, agentResolvedPercent } = computeResolutionSplit(
+    aiResolvedCount,
+    agentResolvedCount,
+  );
+
+  res.json({
+    totalTickets,
+    openTickets,
+    resolvedCount,
+    aiResolvedCount,
+    agentResolvedCount,
+    aiResolvedPercent,
+    agentResolvedPercent,
+    avgResolutionSeconds: avgRows[0]?.avg_seconds ?? null,
+  });
+});
+
+const DAILY_TICKET_COUNT_RANGE_DAYS = 30;
+
+ticketsRouter.get('/stats/daily', requireRole(Role.admin, Role.agent), async (_req, res) => {
+  // generate_series scaffolds one row per calendar day (including days with zero
+  // tickets) so the client never has to fill gaps; COUNT is cast to int4 since
+  // Postgres COUNT(*) is bigint, which node-postgres otherwise returns as a string.
+  const days = await prisma.$queryRaw<{ date: string; count: number }[]>`
+    SELECT to_char(d::date, 'YYYY-MM-DD') AS date, COUNT(t.id)::int AS count
+    FROM generate_series(
+      CURRENT_DATE - INTERVAL '1 day' * ${DAILY_TICKET_COUNT_RANGE_DAYS - 1},
+      CURRENT_DATE,
+      INTERVAL '1 day'
+    ) AS d
+    LEFT JOIN "tickets" t ON t."createdAt"::date = d::date
+    GROUP BY d
+    ORDER BY d
+  `;
+
+  res.json({ days });
+});
+
 const ticketIdParamsSchema = z.object({
   id: z.coerce.number().int().positive(),
 });
@@ -156,9 +222,22 @@ ticketsRouter.patch('/:id/status', requireRole(Role.admin, Role.agent), async (r
     return;
   }
 
+  const newStatus = bodyParsed.data.status;
+
   const ticket = await prisma.ticket.update({
     where: { id: paramsParsed.data.id },
-    data: { status: bodyParsed.data.status },
+    data: {
+      status: newStatus,
+      // This route is human-only, so any resolution made here is an agent
+      // resolution. Reopening clears attribution for whatever resolves it
+      // next; moving to "closed" leaves resolvedAt/resolvedByAi as a
+      // historical record, since closed tickets are excluded from stats anyway.
+      ...(newStatus === TicketStatus.resolved
+        ? { resolvedAt: new Date(), resolvedByAi: false }
+        : newStatus === TicketStatus.open
+          ? { resolvedAt: null, resolvedByAi: false }
+          : {}),
+    },
     include: {
       messages: { orderBy: { sentAt: 'asc' } },
       assignedAgent: { select: { id: true, name: true, email: true } },

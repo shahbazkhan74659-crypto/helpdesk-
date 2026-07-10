@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import DOMPurify from 'isomorphic-dompurify';
 import { config } from '../config';
+import { AI_AGENT_EMAIL } from '../constants';
 import { prisma } from '../db';
 import { MessageSender } from '../generated/prisma/client';
 import type { AutoResolveTicketJob } from '../queue/autoResolveTicketWorker';
@@ -105,10 +106,16 @@ webhooksRouter.post('/inbound-email', async (req, res) => {
     return;
   }
 
+  const aiAgent = await prisma.user.findUnique({ where: { email: AI_AGENT_EMAIL }, select: { id: true } });
+  if (!aiAgent) {
+    console.error(`AI agent user (${AI_AGENT_EMAIL}) not found - run the seed script. Creating ticket unassigned.`);
+  }
+
   const ticket = await prisma.ticket.create({
     data: {
       subject,
       studentEmail: from,
+      assignedAgentId: aiAgent?.id ?? null,
       messages: {
         create: {
           sender: MessageSender.student,
