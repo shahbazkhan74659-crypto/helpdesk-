@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import * as Sentry from '@sentry/node';
 import { toNodeHandler } from 'better-auth/node';
 import cors from 'cors';
@@ -8,6 +10,14 @@ import { prisma } from './db';
 import { ticketsRouter } from './routes/tickets';
 import { usersRouter } from './routes/users';
 import { webhooksRouter } from './routes/webhooks';
+
+// Built client assets live at ../../client/dist relative to this compiled file
+// (server/dist/app.js -> repo root -> client/dist) in the deployed Docker image.
+// Absent in dev/test, where the client is served separately by the Vite dev
+// server, so this is skipped entirely there. This module compiles to
+// CommonJS (no "type": "module" in server/package.json), so __dirname is a
+// native global here.
+const clientDistPath = path.resolve(__dirname, '../../client/dist');
 
 export const app = express();
 
@@ -32,6 +42,14 @@ app.get('/health/db', async (_req, res) => {
 app.use('/api/users', usersRouter);
 app.use('/api/tickets', ticketsRouter);
 app.use('/api/webhooks', webhooksRouter);
+
+if (fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+  app.get('*splat', (req, res, next) => {
+    if (req.path.startsWith('/api/')) return next();
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+}
 
 Sentry.setupExpressErrorHandler(app);
 

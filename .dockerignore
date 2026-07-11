@@ -1,0 +1,17 @@
+**/node_modules
+client/dist
+server/dist
+server/src/generated
+.git
+.env
+.env.*
+!.env.example
+!client/.env.example
+!server/.env.example
+e2e
+playwright-report
+test-results
+.idea
+.claude
+.agents
+*.md

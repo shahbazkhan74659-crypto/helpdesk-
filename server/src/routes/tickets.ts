@@ -305,7 +305,7 @@ ticketsRouter.post('/:id/messages', requireRole(Role.admin, Role.agent), async (
     return;
   }
 
-  const sender = req.session.user.role === Role.admin ? MessageSender.admin : MessageSender.agent;
+  const sender = req.session!.user.role === Role.admin ? MessageSender.admin : MessageSender.agent;
 
   await prisma.ticketMessage.create({
     data: { ticketId: paramsParsed.data.id, sender, body: bodyParsed.data.body },

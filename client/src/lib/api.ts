@@ -1,4 +1,7 @@
-const API_URL = import.meta.env.VITE_API_URL;
+// Falls back to a relative path (same-origin requests) when unset, which is the
+// correct behavior for a single-service deployment where the API is served from
+// the same origin as the client - see DEPLOY.md.
+const API_URL = import.meta.env.VITE_API_URL ?? '';
 
 export class ApiError extends Error {
   constructor(
