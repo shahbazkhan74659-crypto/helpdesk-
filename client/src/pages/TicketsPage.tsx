@@ -77,7 +77,7 @@ function TicketsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-semibold text-gray-900">Tickets</h1>
+      <h1 className="text-lg font-semibold text-foreground">Tickets</h1>
 
       <div className="flex flex-wrap items-center gap-2">
         <Input

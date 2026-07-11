@@ -16,7 +16,7 @@ type ReplyThreadProps = {
 function ReplyThread({ replies }: ReplyThreadProps) {
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-base font-semibold text-gray-900">Replies</h2>
+      <h2 className="text-base font-semibold text-foreground">Replies</h2>
       {replies.length === 0 && <p className="text-sm text-muted-foreground">No replies yet.</p>}
       {replies.map((message) => (
         <Card key={message.id}>

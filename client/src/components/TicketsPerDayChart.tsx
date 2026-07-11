@@ -33,17 +33,17 @@ function TicketsPerDayChart({ days, isPending }: TicketsPerDayChartProps) {
   const gridValues = [axisMax, Math.round(axisMax / 2), 0];
 
   return (
-    <Card>
+    <Card className="border-transparent bg-sidebar text-sidebar-foreground ring-sidebar-border">
       <CardHeader>
-        <CardTitle>Tickets per day</CardTitle>
+        <CardTitle className="text-sidebar-foreground">Tickets per day</CardTitle>
       </CardHeader>
       <CardContent>
         {isPending || !days ? (
-          <Skeleton className="h-[192px] w-full" />
+          <Skeleton className="h-[192px] w-full bg-sidebar-accent" />
         ) : (
           <div className="flex flex-col gap-2">
             <div className="relative flex" style={{ height: CHART_HEIGHT }}>
-              <div className="flex w-10 shrink-0 flex-col justify-between pr-2 text-right text-xs text-muted-foreground">
+              <div className="flex w-10 shrink-0 flex-col justify-between pr-2 text-right font-mono text-xs text-sidebar-foreground/60">
                 {gridValues.map((value) => (
                   <span key={value}>{value}</span>
                 ))}
@@ -52,11 +52,11 @@ function TicketsPerDayChart({ days, isPending }: TicketsPerDayChartProps) {
                 {gridValues.map((value) => (
                   <div
                     key={value}
-                    className="absolute inset-x-0 border-t border-border"
+                    className="absolute inset-x-0 border-t border-sidebar-border"
                     style={{ top: axisMax === 0 ? '100%' : `${100 - (value / axisMax) * 100}%` }}
                   />
                 ))}
-                <div className="absolute inset-0 flex items-end gap-[3px]">
+                <div className="absolute inset-0 flex gap-[3px]">
                   {days.map((day, index) => {
                     const heightPercent = axisMax === 0 ? 0 : (day.count / axisMax) * 100;
                     // Centering the tooltip on the bar overflows the card's
@@ -72,17 +72,18 @@ function TicketsPerDayChart({ days, isPending }: TicketsPerDayChartProps) {
                     return (
                       <div
                         key={day.date}
-                        className="group relative flex h-full flex-1 items-end justify-center"
+                        className="group relative h-full flex-1"
                         tabIndex={0}
                         role="img"
                         aria-label={`${formatDayLabel(day.date)}: ${day.count} ${day.count === 1 ? 'ticket' : 'tickets'}`}
                       >
+                        <div className="absolute inset-x-[15%] top-0 bottom-0 rounded-t-[2px] bg-sidebar-accent/50" />
                         <div
-                          className="w-full max-w-5 rounded-t-[4px] bg-primary opacity-90 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+                          className="absolute inset-x-[15%] bottom-0 rounded-t-[2px] bg-primary transition-[filter] duration-150 group-hover:brightness-110 group-focus-visible:brightness-110"
                           style={{ height: `${heightPercent}%`, minHeight: 2 }}
                         />
                         <div
-                          className={`pointer-events-none absolute bottom-full z-10 mb-1.5 rounded-md bg-popover px-2 py-1 text-xs whitespace-nowrap text-popover-foreground opacity-0 shadow-md ring-1 ring-border transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 ${tooltipPositionClass}`}
+                          className={`pointer-events-none absolute bottom-full z-10 mb-1.5 rounded-md bg-popover px-2 py-1 font-mono text-xs whitespace-nowrap text-popover-foreground opacity-0 shadow-md ring-1 ring-primary/30 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 ${tooltipPositionClass}`}
                         >
                           <span className="font-medium">{day.count}</span> on {formatDayLabel(day.date)}
                         </div>
@@ -92,7 +93,7 @@ function TicketsPerDayChart({ days, isPending }: TicketsPerDayChartProps) {
                 </div>
               </div>
             </div>
-            <div className="ml-10 flex text-xs text-muted-foreground">
+            <div className="ml-10 flex font-mono text-xs text-sidebar-foreground/60">
               {days.map((day, index) => (
                 <div key={day.date} className="flex-1 text-center">
                   {index % 5 === 0 ? formatDayLabel(day.date) : ''}

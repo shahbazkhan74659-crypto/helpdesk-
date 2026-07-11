@@ -23,7 +23,7 @@ function UsersPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-900">Users</h1>
+        <h1 className="text-lg font-semibold text-foreground">Users</h1>
         <Button onClick={() => setModalState({ mode: 'create' })}>Create user</Button>
       </div>
 

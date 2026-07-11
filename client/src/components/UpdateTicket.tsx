@@ -44,7 +44,7 @@ function UpdateTicket({ ticketId, status, category, assignedAgent, onUpdate }: U
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1 text-sm">
-        <span className="font-medium text-gray-900">Assigned</span>
+        <span className="font-medium text-foreground">Assigned</span>
         <Select
           value={assignedAgent?.id ?? UNASSIGNED}
           onValueChange={(value) => assignMutation.mutate(!value || value === UNASSIGNED ? null : value)}
@@ -65,7 +65,7 @@ function UpdateTicket({ ticketId, status, category, assignedAgent, onUpdate }: U
       </div>
 
       <div className="flex flex-col gap-1 text-sm">
-        <span className="font-medium text-gray-900">Status</span>
+        <span className="font-medium text-foreground">Status</span>
         <Select value={status} onValueChange={(value) => value && statusMutation.mutate(value as TicketStatus)}>
           <SelectTrigger size="sm" aria-label="Ticket status" disabled={statusMutation.isPending} className="w-full">
             <SelectValue>{() => <span className="capitalize">{status}</span>}</SelectValue>
@@ -81,7 +81,7 @@ function UpdateTicket({ ticketId, status, category, assignedAgent, onUpdate }: U
       </div>
 
       <div className="flex flex-col gap-1 text-sm">
-        <span className="font-medium text-gray-900">Category</span>
+        <span className="font-medium text-foreground">Category</span>
         <Select
           value={category ?? NO_CATEGORY}
           onValueChange={(value) =>

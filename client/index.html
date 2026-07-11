@@ -3,7 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Ticket queue and support console for HelpDesk." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>HelpDesk</title>
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem('helpdesk-theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

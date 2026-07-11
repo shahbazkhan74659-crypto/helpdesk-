@@ -37,7 +37,7 @@ function HomePage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-semibold text-gray-900">Home</h1>
+      <h1 className="text-lg font-semibold text-foreground">Home</h1>
 
       {isError && <p className="text-sm text-destructive">Failed to load dashboard stats. Please try again.</p>}
 

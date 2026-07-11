@@ -14,7 +14,7 @@ function TicketDetail({ ticketId, subject, studentEmail, createdAt, updatedAt, m
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h1 className="text-lg font-semibold text-gray-900">{subject}</h1>
+        <h1 className="text-lg font-semibold text-foreground">{subject}</h1>
         <p className="text-sm text-muted-foreground">Created: {new Date(createdAt).toLocaleString()}</p>
         <p className="text-sm text-muted-foreground">Updated: {new Date(updatedAt).toLocaleString()}</p>
       </div>

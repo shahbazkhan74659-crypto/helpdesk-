@@ -47,9 +47,9 @@ export const priorityBadgeVariant: Record<TicketPriority, 'secondary' | 'default
 };
 
 export const statusBadgeClassName: Record<TicketStatus, string> = {
-  [TicketStatus.open]: 'bg-red-100 text-red-700',
-  [TicketStatus.resolved]: 'bg-blue-100 text-blue-700',
-  [TicketStatus.closed]: 'bg-gray-200 text-black',
+  [TicketStatus.open]: 'border-primary/40 bg-primary/10 text-primary',
+  [TicketStatus.resolved]: 'border-success/40 bg-success/10 text-success',
+  [TicketStatus.closed]: 'border-muted-foreground/30 bg-transparent text-muted-foreground',
 };
 
 const columnHelper = createColumnHelper<Ticket>();
@@ -69,7 +69,7 @@ const columns = [
   columnHelper.accessor('status', {
     header: 'Status',
     cell: (info) => (
-      <Badge variant="secondary" className={`capitalize ${statusBadgeClassName[info.getValue()]}`}>
+      <Badge variant="outline" className={`font-mono uppercase tracking-wide ${statusBadgeClassName[info.getValue()]}`}>
         {info.getValue()}
       </Badge>
     ),
