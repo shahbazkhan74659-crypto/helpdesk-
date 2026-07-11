@@ -36,6 +36,12 @@ const envSchema = z.object({
   // curl/Postman testing works without it; required in production (enforced below)
   // since without it the endpoint accepts unauthenticated ticket-creating requests.
   INBOUND_EMAIL_WEBHOOK_SECRET: z.string().optional(),
+
+  // Sentry error logging. Optional - Sentry.init() is only called when this is set,
+  // so local dev/test runs without a DSN configured simply skip error reporting.
+  SENTRY_DSN: z.string().optional(),
+  // Environment tag attached to Sentry events. Falls back to NODE_ENV when unset.
+  SENTRY_ENVIRONMENT: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

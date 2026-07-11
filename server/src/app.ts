@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import { toNodeHandler } from 'better-auth/node';
 import cors from 'cors';
 import express from 'express';
@@ -31,6 +32,8 @@ app.get('/health/db', async (_req, res) => {
 app.use('/api/users', usersRouter);
 app.use('/api/tickets', ticketsRouter);
 app.use('/api/webhooks', webhooksRouter);
+
+Sentry.setupExpressErrorHandler(app);
 
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);

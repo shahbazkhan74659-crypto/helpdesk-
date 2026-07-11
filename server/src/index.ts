@@ -1,3 +1,4 @@
+import './instrument';
 import { app } from './app';
 import { config } from './config';
 import { registerAutoResolveTicketWorker } from './queue/autoResolveTicketWorker';
