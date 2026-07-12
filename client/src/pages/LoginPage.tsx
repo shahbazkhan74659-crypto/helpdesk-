@@ -90,6 +90,20 @@ function LoginPage() {
               {isSubmitting ? 'Logging in...' : 'Log in'}
             </Button>
           </form>
+
+          <div className="mt-6 rounded-md border bg-muted/50 p-3 text-sm">
+            <p className="font-medium">Demo accounts</p>
+            <p className="mt-2">
+              <span className="text-muted-foreground">Admin:</span> admin@helpdesk.local
+              <br />
+              <span className="text-muted-foreground">Password:</span> Password123
+            </p>
+            <p className="mt-2">
+              <span className="text-muted-foreground">Agent:</span> jane@helpdesk.com
+              <br />
+              <span className="text-muted-foreground">Password:</span> Password123
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
